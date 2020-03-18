@@ -4,7 +4,7 @@ import math
 import cv2
 
 # Read image
-im = pilimg.open('map951_200214.pgm')
+im = pilimg.open('/home/seongju/Downloads/map1_200318.pgm')
 
 # Display image
 print(im)
@@ -29,7 +29,7 @@ def get_ori(fro, to):
 
 def transform_ori(ori):
     w=math.sqrt((1+ori[0])/2)
-    z=ori[1]/(2*z)
+    z=ori[1]/(2*w)
     new_ori=(z, w)
     return new_ori
 
@@ -47,7 +47,7 @@ def transform_coordi(points, im, origin,resolution): #origin from yaml file
         y_new = (ysize-coordi[0]-1)*resolution
         x_new = x_new + x_ori
         y_new = y_new + y_ori
-        ori_new = (ori[1], -ori[0])
+        ori_new = transform_ori((ori[1], -ori[0]))
         new_points.append(Point((x_new,y_new),'r',ori_new))
     return new_points
 
@@ -223,25 +223,17 @@ for i in range(i_part):
 print(yellow_num, red_num)
 print("group number :", group_num)
 
+(x,y) = map(float,input("put origin coordinates: ").split())
+origin = (x,y)
+resolution = 0.05
+
 for i in range(group_num):
     print("path", i)
     if len(red_group[i+1])==0 or len(red_group[i+1])==1:
         continue
     path = MST(red_group[i+1])
-    a=[(item.coordi, transform_ori(item.ori)) for item in path]
-    print(a)
+    a= transform_coordi(path, pix, origin, resolution)
+    b=[(item.coordi, item.ori) for item in a]
+    print(b)
 
-cv2.imwrite('result6.png',image)
-
-(x,y) = map(float,input("put origin coordinates: ").split())
-origin = (x,y)
-resolution = 0.05
-new_red = transform_coordi(sample_points,pix,origin,resolution)
-a=[(item.coordi,item.ori) for item in new_red]
-print(a)
-
-
-
-
-
-
+cv2.imwrite('/home/seongju/path_image/result0318.png',image)
