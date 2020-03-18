@@ -27,6 +27,12 @@ def get_ori(fro, to):
     siz= np.linalg.norm(a)
     return (x/siz, y/siz)
 
+def transform_ori(ori):
+    w=math.sqrt((1+ori[0])/2)
+    z=ori[1]/(2*z)
+    new_ori=(z, w)
+    return new_ori
+
 def transform_coordi(points, im, origin,resolution): #origin from yaml file
     xsize=im.shape[1]
     ysize=im.shape[0]
@@ -222,7 +228,7 @@ for i in range(group_num):
     if len(red_group[i+1])==0 or len(red_group[i+1])==1:
         continue
     path = MST(red_group[i+1])
-    a=[(item.coordi, item.ori) for item in path]
+    a=[(item.coordi, transform_ori(item.ori)) for item in path]
     print(a)
 
 cv2.imwrite('result6.png',image)
