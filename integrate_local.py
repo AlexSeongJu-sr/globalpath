@@ -259,8 +259,8 @@ def transform_inverse(coordi, im, origin, resolution): #transform cartesian to p
     y_ori=origin[1]
     x_old=coordi[0] - x_ori
     y_old=coordi[1] - y_ori
-    x_pix = -1 * (y_old/resolution+1-ysize)
-    y_pix = x_old/resolution
+    x_pix = round(-1 * (y_old/resolution+1-ysize))
+    y_pix = round(x_old/resolution)
     return (x_pix, y_pix)
 
 def find(a, uf):
@@ -418,8 +418,6 @@ resolution = 0.05
 
 object_cate=input("put wnated_objects : ").split()
 
-
-
 # Setup:
 pipe = rs.pipeline()
 cfg = rs.config() # config for pyrealsense
@@ -469,9 +467,10 @@ for i in range(group_num):
         object_info = detect_object(cfg, cfg2, predictor, profile, object_cate, tf) # get global coordinates of object
         for item in object_info: #local path planning
             coordi = item["coordi"]
-            pixel_coordi = transform_inverse(coordi)
-            local_path = find_local(pixel_coordi, current_pose, color, local_r)
-            local_path = transform_coordi(local_path, pix, origin, resolution)
+            object_pixel = transform_inverse(coordi)
+            current_pixel = transform_inverse(current_pose)
+            local_path_pixel = find_local(object_pixel, current_pixel, color, local_r)
+            local_path = transform_coordi(local_path_pixel, pix, origin, resolution)
             for local_point in local_path:
                 nav2(local_point.coordi[0], local_point.coordi[1], local_point.ori[0], local_point.ori[1])
                 # capture & resgistration
