@@ -27,7 +27,7 @@ print("Environment Ready")
 cate=builtin_meta.COCO_CATEGORIES
 
 # Read image
-im = pilimg.open('/home/dvision/map2_200318.pgm')
+im = pilimg.open('/home/dvision/map2_200321.pgm')
 # Display image
 print(im)
 
@@ -139,15 +139,20 @@ class MyClient(Node):
 
 def nav2(xpose, ypose, zori, wori):
     rclpy.init(args=None)
+    print("nav pose:",xpose, ypose, zori, wori)
     action_client = MyClient()
     action_client.send_goal(xpose, ypose, zori, wori)
     rclpy.spin(action_client)
+    print("sleep 3sec")
+    time.sleep(3)
 
 def detect_object(cfg, cfg2, predictor, object_cate,tf):
     object_info=[]
     # Store next frameset for later processing:
     start1 = time.time()
     profile = pipe.start(cfg)
+    for x in range(5):
+        pipe.wait_for_frames()
     frameset = pipe.wait_for_frames()
     color_frame = frameset.get_color_frame()
     depth_frame = frameset.get_depth_frame()
@@ -178,7 +183,7 @@ def detect_object(cfg, cfg2, predictor, object_cate,tf):
 
     centers = out_boxes.get_centers()
     depth_scale = profile.get_device().first_depth_sensor().get_depth_scale()
-    print("depthscale :", depth_scale)
+    #print("depthscale :", depth_scale)
 
     idx = 0
 
@@ -203,8 +208,12 @@ def detect_object(cfg, cfg2, predictor, object_cate,tf):
             depth_intrin, [x, y], depth)
         idx = idx + 1
         coordi = np.array([depth_point[0], depth_point[1], depth_point[2], 1]).T
+        print("camera coordi :", coordi)
         coordi_global = np.matmul(tf, coordi).T
+        print("global coordi: ", coordi_global)
         object_info.append({"name" : name_t, "score" : score_t, "coordi" : coordi_global})
+        print("name :",name_t)
+        print("coordi ;", coordi_global)
     return object_info
 
 def get_tf(robot_pose, robot_ori, extrinsic_robot_camera):
@@ -215,13 +224,13 @@ def get_tf(robot_pose, robot_ori, extrinsic_robot_camera):
     robot_translation = np.array([[1, 0, 0, robot_pose[0]],
                            [0, 1, 0, robot_pose[1]],
                            [0, 0, 1, 0],
-                           [0, 0, 0, 0]])
+                           [0, 0, 0, 1]])
     robot_rotation = np.array([[cos, -sin, 0, 0],
                               [sin, cos, 0, 0],
                               [0, 0, 1, 0],
                               [0, 0, 0, 1]])
-    tf=np.matmul(robot_rotation, robot_translation)
-    tf=np.matmul(extrinsic_robot_camera, tf)
+    tf=np.matmul(robot_translation, robot_rotation)
+    tf=np.matmul(tf, extrinsic_robot_camera)
     return tf
 
 """
@@ -310,11 +319,16 @@ def find_local(obj_pose, current_pose, color, local_r):
     for k in range(2*local_r+2) :
         for l in range(2*local_r+2) :
             i = x-local_r-1+k
-            j = y-local_r-1+k
+            j = y-local_r-1+l
             d= get_distance((i,j), current_pose)
-            if color[i][j]=='y' and d>=local_r and d<1.5:
+            if color[i][j]=='y' and d>=local_r and d<local_r+1.0:
                 ori=get_ori((i,j), obj_pose)
-                local_points.append(Point((i,j),'r', ori))
+                dupl=False
+                for item in local_points:
+                    if get_distance((i,j), item.coordi) <=1.5:
+                        dupl=True
+                if not dupl:
+                    local_points.append(Point((i,j),'r', ori))
     local_points.append(Point(current_pose, 'lo', get_ori(current_pose, obj_pose)))
     return local_points
 
@@ -439,8 +453,8 @@ camera_trans=np.array([[1, 0, 0, 0.149],
                       [0, 1, 0, 0],
                       [0, 0, 1, 0.99],
                       [0, 0, 0, 1]])
-inter = np.matmul(z_90, camera_trans)
-extrinsic_robot_camera = np.matmul(x_90, inter) # put extrinsic matrix between robot & camera
+inter = np.matmul(camera_trans, z_90)
+extrinsic_robot_camera = np.matmul(inter, x_90) # put extrinsic matrix between robot & camera
 
 
 for i in range(group_num):
@@ -454,15 +468,21 @@ for i in range(group_num):
     for global_point in b:
         current_pose = (global_point[0][0], global_point[0][1])
         current_ori = (global_point[1][0], global_point[1][1])
+        print("go global_point")
         nav2(global_point[0][0], global_point[0][1], global_point[1][0], global_point[1][1])
         tf = get_tf(current_pose, current_ori, extrinsic_robot_camera)
         object_info = detect_object(cfg, cfg2, predictor, object_cate, tf) # get global coordinates of object
         for item in object_info: #local path planning
+            #print("object name:",item["name"])
             coordi = item["coordi"]
+            #print("object coordi:", coordi)
             object_pixel = transform_inverse(coordi, pix, origin, resolution)
             current_pixel = transform_inverse(current_pose, pix, origin, resolution)
             local_path_pixel = find_local(object_pixel, current_pixel, color, local_r)
             local_path = transform_coordi(local_path_pixel, pix, origin, resolution)
+            for local_point in local_path:
+                print("local_point :", (local_point.coordi[0], local_point.coordi[1]))
+            print("go local_point")
             for local_point in local_path:
                 nav2(local_point.coordi[0], local_point.coordi[1], local_point.ori[0], local_point.ori[1])
                 # capture & resgistration
