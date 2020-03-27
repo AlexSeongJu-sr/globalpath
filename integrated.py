@@ -4,6 +4,8 @@ import cv2
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.node import Node
+from action_msgs.msg import GoalStatus
+from geometry_msgs.msg import PoseWithCovarianceStamped
 
 #action type is NavigateToPose
 from nav2_msgs.action import NavigateToPose
@@ -24,12 +26,12 @@ from detectron2.data.datasets import builtin_meta
 
 print("Environment Ready")
 
+#bring object categories ex)tv, person, mouse etc
 cate=builtin_meta.COCO_CATEGORIES
 
-# Read image
-im = pilimg.open('/home/dvision/map2_200321.pgm')
+# Read slam_map image
+im = pilimg.open('/home/dvision/map1_200324.pgm')
 # Display image
-print(im)
 
 # Fetch image pixel data to numpy array
 pix = np.array(im)
@@ -54,6 +56,17 @@ def transform_ori(ori):
     z=ori[1]/(2*w)
     new_ori=(z, w)
     return new_ori
+
+def transform_coordi2(point, im, origin, resolution):
+    xsize=im.shape[1]
+    ysize=im.shape[0]
+    x_ori=origin[0]
+    y_ori=origin[1]
+    x_new = point[1]*resolution
+    y_new = (ysize-point[0]-1)*resolution
+    x_new = x_new + x_ori
+    y_new = y_new + y_ori
+    return (x_new, y_new)
 
 def transform_coordi(points, im, origin,resolution): #origin from yaml file
     xsize=im.shape[1]
@@ -97,54 +110,115 @@ class Edge:
         self.v=v
         self.w=w
 
+def find_reset(x, y, local_r):
+    center = transform_inverse((x,y),pix,origin,resolution)
+    print("center :",center)
+    x=center[0]
+    y=center[1]
+    for k in range(2*local_r+2) :
+        for l in range(2*local_r+2) :
+            i = x-local_r-1+k
+            j = y-local_r-1+l
+            d= get_distance((i,j), center)
+            if (color[i][j]=='y' or color[i][j] == 'w') and d>=local_r and d<local_r+1.0:
+                reset=transform_coordi2((i,j), pix, origin, resolution)
+                print("reset :",reset)
+                return reset
+
+
 class MyClient(Node):
 
     def __init__(self):
         super().__init__('my_client')
 #action type : NavigateToPose, action name : NavigateToPose
         self._action_client = ActionClient(self,NavigateToPose,'NavigateToPose')
+        self.model_pose_sub = self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self.poseCallback)
+        self.initial_pose_received = False
+
+    def poseCallback(self, msg):
+        self.current_pose = msg.pose.pose
+        self.initial_pose_received = True
+
+    def distanceFromGoal(self, goal_pose):
+        dx = self.current_pose.position.x - goal_pose.position.x
+        dy = self.current_pose.position.y - goal_pose.position.y
+        distance = math.sqrt(dx * dx + dy * dy)
+        return distance
+
+    def yawFromGoal(self, goal_pose):
+        theta = 2 * math.asin(self.current_pose.orientation.z) * 180 / math.pi
+        theta2 = 2 * math.asin(goal_pose.orientation.z) * 180 / math.pi
+        a = theta - theta2
+        a = (a + 180) % 360 - 180
+        dif = float(abs(a))
+        return dif
 
     def send_goal(self, xpose, ypose, zpose, wpose):
         goal_msg = NavigateToPose.Goal()
-#give values to each of PoseStamped types
-        goal_msg.pose.header.stamp.sec = 0
+        # goal_msg.pose.header.stamp.sec = round(self.get_clock().now().nanoseconds*(10**-9))
         goal_msg.pose.header.frame_id = "map"
         goal_msg.pose.pose.position.x = xpose
         goal_msg.pose.pose.position.y = ypose
         goal_msg.pose.pose.orientation.z = zpose
         goal_msg.pose.pose.orientation.w = wpose
         self._action_client.wait_for_server()
-
-        self._send_goal_future = self._action_client.send_goal_async(
+        count=0
+        succeed_count=0
+        while True:
+            print("count :", count)
+            self._send_goal_future = self._action_client.send_goal_async(
             goal_msg)
+            rclpy.spin_until_future_complete(self,self._send_goal_future)
+            goal_handle = self._send_goal_future.result()
 
-        self._send_goal_future.add_done_callback(self.goal_response_callback)
+            if not goal_handle.accepted:
+                self.get_logger().info('Goal rejected :(')
+                return
 
-    def goal_response_callback(self, future):
-        goal_handle = future.result()
+            self.get_logger().info('Goal accepted :)')
 
-#check if goal is accepted by server
-        if not goal_handle.accepted:
-            self.get_logger().info('Goal rejected :(')
-            return
-        self.get_logger().info('Goal accepted :)')
+            self._get_result_future = goal_handle.get_result_async()
+            rclpy.spin_until_future_complete(self, self._get_result_future)
+            status = self._get_result_future.result().status
+            if (status == GoalStatus.STATUS_SUCCEEDED):
+                self.get_logger().info("Goal Succeeded")
+                if not self.initial_pose_received or succeed_count>=3:
+                    print("wait for initial_pose / bbuk nan geo im")
+                    rclpy.spin_once(self, timeout_sec = 1)
+                    return False
+                print("distance :", self.distanceFromGoal(goal_msg.pose.pose))
+                print("yaw :", self.yawFromGoal(goal_msg.pose.pose))
+                if self.distanceFromGoal(goal_msg.pose.pose) > 0.15 or self.yawFromGoal(goal_msg.pose.pose) > 15:
+                    succeed_count+=1
+                    continue
+                break
+            else:
+                count+=1
+                continue
+        return True
 
-        self._get_result_future = goal_handle.get_result_async()
 
-        self._get_result_future.add_done_callback(self.get_result_callback)
 
-    def get_result_callback(self, future):
-        result = future.result().result
-        rclpy.shutdown()
 
 def nav2(xpose, ypose, zori, wori):
     rclpy.init(args=None)
     print("nav pose:",xpose, ypose, zori, wori)
     action_client = MyClient()
-    action_client.send_goal(xpose, ypose, zori, wori)
-    rclpy.spin(action_client)
+    passed = action_client.send_goal(xpose, ypose, zori, wori)
+    rclpy.shutdown()
+    while not passed:
+        reset = find_reset(xpose, ypose, 10)
+        rclpy.init(args=None)
+        _action_client = MyClient()
+        _action_client.send_goal(reset[0], reset[1], 0.0, 1.0)
+        rclpy.shutdown()
+        rclpy.init(args=None)
+        _action_client = MyClient()
+        passed = _action_client.send_goal(xpose,ypose,zori,wori)
+        rclpy.shutdown()
     print("sleep 3sec")
     time.sleep(3)
+
 
 def detect_object(cfg, cfg2, predictor, object_cate,tf):
     object_info=[]
