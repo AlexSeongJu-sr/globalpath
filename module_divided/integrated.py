@@ -13,7 +13,9 @@ import transformation as tr
 import navigation as nav2
 import object_detection as ob
 import globalpath as gp
+import capture
 import pyrealsense2 as rs
+import open3d as o3d
 
 import detectron2
 from detectron2.utils.logger import setup_logger
@@ -161,7 +163,7 @@ cfg2.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mas
 predictor = DefaultPredictor(cfg2)
 
 # set configuration for realsense. frame size is set to 848 x 480.
-cfg.enable_stream(rs.stream.depth,  848, 480, rs.format.z16, 90)
+cfg.enable_stream(rs.stream.depth,  848, 480, rs.format.z16, 30)
 cfg.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
 
 # put local radius for local path planning
@@ -182,6 +184,11 @@ camera_trans=np.array([[1, 0, 0, 0.149],
                       [0, 0, 0, 1]])
 inter = np.matmul(camera_trans, z_90)
 extrinsic_robot_camera = np.matmul(inter, x_90) # put extrinsic matrix between robot & camera
+thre = rs.threshold_filter(0.1, 2.0)
+# Declare pointcloud object, for calculating pointclouds and texture mappings
+pc = rs.pointcloud()
+# We want the points object to be persistent so we can display the last cloud when a frame drops
+
 
 for i in range(group_num):
     print("path", i)
@@ -199,6 +206,8 @@ for i in range(group_num):
         object_info = ob.detect_object(cfg, cfg2, predictor, object_cate, tf) # get global coordinates of object
         for item in object_info: #local path planning
             coordi = item["coordi"]
+            name = item["name"]
+            tag = name + '_'+ str(coordi)
             object_pixel = tr.transform_inverse(coordi, pix, origin, resolution)
             current_pixel = tr.transform_inverse(current_pose, pix, origin, resolution)
             local_path_pixel = nav2.find_local(object_pixel, current_pixel, color, local_r)
@@ -206,8 +215,43 @@ for i in range(group_num):
             for local_point in local_path:
                 print("local_point :", (local_point.coordi[0], local_point.coordi[1]))
             print("go local_point")
+            idx = 0
+            points = []
             for local_point in local_path:
-                nav2(local_point.coordi[0], local_point.coordi[1], local_point.ori[0], local_point.ori[1])
+                current_pose = nav2(local_point.coordi[0], local_point.coordi[1], local_point.ori[0], local_point.ori[1])
+                ori = (current_pose.orientation.z, current_pose.orientation.w)
+                (cos, sin) = tr.transform_ori_inverse(ori)
+                (x, y) = (current_pose.position.x, current_pose.position.y)
+                r_trans = np.array([[cos, 0, -sin, 0],
+                                   [0, 1, 0, 0],
+                                   [sin, 0, cos, 0],
+                                   [0, 0, 0, 1]])
+                t_trans = np.array([[1, 0, 0, -y],
+                                   [0, 1, 0, 0],
+                                   [0, 0, 1, x],
+                                   [0, 0, 0, 1]])
+                tmp = capture.capture(cfg, pipe, thre, pc)
+                tmp = tmp.transform(r_trans)
+                tmp = tmp.transform(t_trans)
+                points.append(tmp)
+
+            current_transformation = np.identity(4)
+            matrices = []
+            result = points[0]
+            for n in range(len(local_path)):
+                if n is 0:
+                    continue
+                # " Point-to-plane ICP registration is applied on original point"
+                # "   clouds to refine the alignment. Distance threshold 0.04."
+                result_icp = o3d.registration.registration_icp(points[n], points[n-1], 0.04, current_transformation,
+                    o3d.registration.TransformationEstimationPointToPlane())
+                matrices.append[result_icp.transformation]
+                transform_matrix = np.identity(4)
+                for mat in matrices:
+                    transform_matrix = np.matmul(mat,transform_matrix)
+                result = result + points[n].transform(transform_matrix)
+            o3d.io.write_point_cloud(tag,result) # save an object as point cloud
+
                 # capture & resgistration
 
 #cv2.imwrite('/home/3dvision/path_image/result2_0318.png',image)
