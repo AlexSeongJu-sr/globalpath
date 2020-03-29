@@ -1,7 +1,7 @@
 ## License: Apache 2.0. See LICENSE file in root directory.
 ## Copyright(c) 2017 Intel Corporation. All Rights Reserved.
 #https://qiita.com/idev_jp/items/0f71cf831b604f8adcea. save as pcd with open3d & pyrealsense
-
+#https://github.com/IntelRealSense/librealsense/issues/3894. cropping with transform
 
 #####################################################
 ##                  Export to PLY                  ##
@@ -31,6 +31,7 @@ pipe.start(config)
 colorizer = rs.colorizer()
 align_to = rs.stream.color
 align = rs.align(align_to)
+thre = rs.threshold_filter(0.1, 2.0)
 
 try:
     # Wait for the next set of frames from the camera
@@ -40,11 +41,12 @@ try:
     frames = pipe.wait_for_frames()
     #aligned_frames = align.process(frames)
     depth = frames.get_depth_frame()
+    filtered = thre.process(depth)
     color = frames.get_color_frame()
 
     pc.map_to(color)
-    points = pc.calculate(depth)
-    points.export_to_ply("5.ply", color)
+    points = pc.calculate(filtered)
+    points.export_to_ply("1.ply", color)
 
     # Set options to the desired values
     # In this example we'll generate a textual PLY with normals (mesh is already created by default)
