@@ -2,21 +2,44 @@ import numpy as np
 import icp_data
 import open3d as o3d
 import make_neighborhoods
-from math import log
+from math import log, pi
 import math
 
+
+class Theta():
+    def __init__(self):
+        self.in_mean
+        self.in_std
+        self.out_mean
+        self.out_std
+
+def M_step(z, y):
+    theta = Theta()
+    n_1 = np.sum((1+z)/2)
+    theta.in_mean = np.sum((1+z)/2*y)/n_1
+    theta.in_std = math.sqrt(np.sum((1+z)/2*y*y)/n_1 - theta.in_mean**2)
+    nm_1 = np.sum((1-z)/2)
+    theta.out_mean = np.sum((1-z)/2*y)/nm_1
+    theta.out_std = math.sqrt(np.sum((1-z)/2*y*y)/nm_1 - theta.out_mean**2)
+    return theta
 
 def E_step(y, z, theta, params, data):
     mean_field = np.matmul(data.neighborhoods[data.pyramid_level], z)
 
-    r_in = params.beta*mean_field - 0.5 *log(2*math.pi) -log(theta.in_std) - (y - theta.in_mean)**2./(2*theta.in_std**2)+params.gamma
+    r_in = params.beta*mean_field - 0.5 *log(2*pi) -log(theta.in_std) - (y - theta.in_mean)**2/(2*theta.in_std**2)+params.gamma
     r_in(isnan)
 
     if params.em_outlier_dist == 'normal':
-        r_out = -params.beta*mean_field - 0.5*log(2*math.pi) - log(theta.out_std) - (y - theta.out_mean)**2./(2*theta.out_std**2) - params.gamma
+        r_out = -params.beta*mean_field - 0.5*log(2*pi) - log(theta.out_std) - (y - theta.out_mean)**2/(2*theta.out_std**2) - params.gamma
     elif params.em_outlier_dist == 'logistic':
         s = math.sqrt(3)/math.pi*theta.out_std
-        r_out = -params.beta*mean_field - log(s) - (y-theta.out_mean)/s - 2*log(1+exp(-(y-theta.out_mean)/s))-params.gamma
+        r_out = -params.beta*mean_field - log(s) - (y-theta.out_mean)/s - 2*log(1+np.exp(-(y-theta.out_mean)/s))-params.gamma
+
+    r_out(isnan)
+    r_min = min(r_in, r_out)
+    z = 2*np.divide(np.exp(r_in-r_min) , np.exp(r_out - r_min) + np.exp(r_in - r_min))
+    return z
+
 
 def EM(y, z, max_iter, params, data):
     z1 = [z[2:][:]; np.zeros()]
