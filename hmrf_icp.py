@@ -27,7 +27,7 @@ def E_step(y, z, theta, params, data):
     mean_field = np.matmul(data.neighborhoods[data.pyramid_level], z)
 
     r_in = params.beta*mean_field - 0.5 *log(2*pi) -log(theta.in_std) - (y - theta.in_mean)**2/(2*theta.in_std**2)+params.gamma
-    r_in(isnan)
+    r_in[np.isnan(r_in)] = params.beta*mean_field[np.isnan(r_in)]
 
     if params.em_outlier_dist == 'normal':
         r_out = -params.beta*mean_field - 0.5*log(2*pi) - log(theta.out_std) - (y - theta.out_mean)**2/(2*theta.out_std**2) - params.gamma
@@ -35,19 +35,27 @@ def E_step(y, z, theta, params, data):
         s = math.sqrt(3)/math.pi*theta.out_std
         r_out = -params.beta*mean_field - log(s) - (y-theta.out_mean)/s - 2*log(1+np.exp(-(y-theta.out_mean)/s))-params.gamma
 
-    r_out(isnan)
+    r_out[np.isnan(r_out)] = params.beta*mean_field[np.isnan(r_out)]
     r_min = min(r_in, r_out)
     z = 2*np.divide(np.exp(r_in-r_min) , np.exp(r_out - r_min) + np.exp(r_in - r_min))
     return z
 
 
 def EM(y, z, max_iter, params, data):
-    z1 = [z[2:][:]; np.zeros()]
+    z1 = np.random.randint(low = -1, high = 2, size = (len(z), 3))
+    check = 0
     for iters in range(1, max_iter+1):
-        z2 = z1
-        z1 = z
+        z2 = z1.copy()
+        z1 = z.copy()
         theta = M_step(z,y)
+        z = E_step(y, z, theta, params, data)
 
+        if np.all(z*z1) or (iters>1 and np.all(z*z2)):
+            check = iters
+            break
+
+    data.em_iters.append(check)
+            
 
 def EM_pyramid(y, z, max_iter, params, data):
     zs = [z]
