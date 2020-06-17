@@ -55,7 +55,7 @@ def EM(y, z, max_iter, params, data):
             break
 
     data.em_iters.append(check)
-            
+    return [z, theta, iters, data]
 
 def EM_pyramid(y, z, max_iter, params, data):
     zs = [z]
@@ -69,7 +69,16 @@ def EM_pyramid(y, z, max_iter, params, data):
         data.pyramid_level = p
         zs[p], theta, iters, data = EM(ys[p], zs[p], max_iter, params, data)
 
+        if p>1:
+            s = np.array(data.neighborhood_maps[p-1])
+            n = len(data.neighborhoods[p-1])
+            not_s = np.array([i for i in range(1, n+1)])
+            not_s = np.delete(not_s, s)
+            zs[p-1][s] = zs[p]
+            zs[p-1][not_s] = np.matmul(data.neighborhoods[p-1][not_s, s], zs[p])
 
+    z = zs[1]
+    return [z, theta, iters, data]
 
 def hmrf_icp(ref, src, params):
     data = icp_data()
@@ -99,7 +108,7 @@ def hmrf_icp(ref, src, params):
         if params.verbose:
             print('Done making neighborhoods')
     else:
-        print("nenighbor_structure must be grid or unstructured")
+        print("neighbor_structure must be grid or unstructured")
 
     if params.verbose:
         print('starting icp iterations')
@@ -108,14 +117,13 @@ def hmrf_icp(ref, src, params):
         idx, y = kdtree.search_knn_vector_3d(src)
 
         if icp_iter == 1:
-            z[y>]
+            z[y>np.percentile(y, 90)] = -1
 
             z, theta, iters, data = EM_pyramid(y, z, params.em_iter_max_start, params, data)
-            z, theta, iters, data = EM_pyramid(y, z, params.em_iter_max, params, data)
         else:
             z, theta, iters, data = EM_pyramid(y, z, params.em_iter_max, params, data)
 
-
+        matches =
 
 
 
