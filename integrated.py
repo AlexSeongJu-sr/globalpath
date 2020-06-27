@@ -110,7 +110,7 @@ cate=builtin_meta.COCO_CATEGORIES
 direction = [-1, 0, 1]
 
 # Read slam_map image
-im = pilimg.open('/home/dvision/map_200625.pgm')
+im = pilimg.open('/home/dvision/map_200625.pgm') #load 2D slam map
 
 # Fetch image pixel data to numpy array. values are one of 0, 205, 254. 0 for obstacle, 205 for near obstacle, 254 for empty space.
 im_pix = np.array(im)
@@ -209,7 +209,7 @@ origin = (x,y)
 resolution = 0.05
 
 # type object categories that you want to detect. ex) tv, person, cellphone etc
-object_cate=input("put wanted_objects(ex. tv) : ").split()
+object_cate = input("put wanted_objects(ex. tv) : ").split()
 
 # Setup for detecting object:
 pipe = rs.pipeline()
@@ -221,7 +221,7 @@ cfg2.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
 cfg2.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
 predictor = DefaultPredictor(cfg2)
 
-# set configuration for realsense. frame size is set to 848 x 480.
+# set configuration for realsense. frame size is set 848 x 480. speed to 30 fps.
 cfg.enable_stream(rs.stream.depth,  848, 480, rs.format.z16, 30)
 cfg.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
 
@@ -246,6 +246,7 @@ extrinsic_robot_camera = np.matmul(inter, x_90) # put extrinsic matrix between r
 thre = rs.threshold_filter(0.1, 1.8)
 # Declare pointcloud object, for calculating pointclouds and texture mappings
 pc = rs.pointcloud()
+
 center = np.array([[0.0], [0.0], [1.0]])
 extent = np.array([[1], [1], [2]])
 R = np.identity(3)

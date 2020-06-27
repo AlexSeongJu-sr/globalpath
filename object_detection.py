@@ -12,8 +12,8 @@ def detect_object(cfg, pipe, cate, predictor, object_cate,tf):
     object_info=[]
     start1 = time.time()
     profile = pipe.start(cfg)
-    for x in range(5):
-        pipe.wait_for_frames()
+    for x in range(30):
+        pipe.wait_for_frames() # abandon first few frames
     frameset = pipe.wait_for_frames()
     color_frame = frameset.get_color_frame()
     depth_frame = frameset.get_depth_frame()
