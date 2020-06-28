@@ -18,6 +18,7 @@ import capture
 import pyrealsense2 as rs
 import open3d as o3d
 import copy
+import matplotlib.pyplot as plt
 import pdb
 
 import detectron2
@@ -46,7 +47,7 @@ def get_ori(fro, to):
 
 
 def is_in(pos): # is a point in the map?
-    if (pos[0]<0 or pos[0]>=size[0]) or (pos[1]<0 or pos[1]>=size[1]):
+    if (pos[0] < 0 or pos[0] >= im_size[0]) or (pos[1] < 0 or pos[1] >= im_size[1]):
         return False
     else :
         return True
@@ -65,7 +66,7 @@ def dfs(visited, x, y, group_num):
 # reset point should be 'local_r' radius away from goal pose and the color should be yellow or white.
 # yellow is global path. black is near obstacles.
 def find_reset(x, y, local_r):
-    center = tr.transform_inverse((x,y), pix, origin, resolution)
+    center = tr.transform_inverse((x,y), im_pix, origin, resolution)
     print("center :",center)
     x=center[0]
     y=center[1]
@@ -75,7 +76,7 @@ def find_reset(x, y, local_r):
             j = y-local_r-1+l
             d= get_distance((i,j), center)
             if (color[i][j]=='y' or color[i][j] == 'w') and d>=local_r and d<local_r+1.0:
-                reset=tr.transform_coordi2((i,j), pix, origin, resolution)
+                reset=tr.transform_coordi2((i,j), im_pix, origin, resolution)
                 print("reset :",reset)
                 return reset
 
@@ -109,45 +110,45 @@ cate=builtin_meta.COCO_CATEGORIES
 direction = [-1, 0, 1]
 
 # Read slam_map image
-im = pilimg.open('/home/dvision/map_200625.pgm')
+im = pilimg.open('/home/dvision/map_200625.pgm') #load 2D slam map
 
-# Fetch image pixel data to numpy array
-pix = np.array(im)
-print(pix.shape)
-size=pix.shape
+# Fetch image pixel data to numpy array. values are one of 0, 205, 254. 0 for obstacle, 205 for near obstacle, 254 for empty space.
+im_pix = np.array(im)
+print(im_pix.shape)
+im_size=im_pix.shape
 
-# divide map into small fragments with size 10 x 10
-i_part = pix.shape[0]//10 + 1
-j_part = pix.shape[1]//10 + 1
+# divide map into small fragments of size 10 x 10
+i_part = im_pix.shape[0] // 10 + 1
+j_part = im_pix.shape[1] // 10 + 1
 parted_yellow = [[[]for item in range(j_part)] for item in range(i_part)]
 parted_num = [[0 for item in range(j_part)] for item in range(i_part)]
-parted_sample = [[[]for item in range(j_part)] for item in range(i_part)]
+parted_red = [[[] for item in range(j_part)] for item in range(i_part)]
 
-visited = [[0 for item in range(size[1])] for item in range(size[0])]
-yellow_group=[[0 for item in range(size[1])] for item in range(size[0])]
+visited = [[0 for item in range(im_size[1])] for item in range(im_size[0])]
+yellow_group=[[0 for item in range(im_size[1])] for item in range(im_size[0])]
 
 color = []
-ori = []
-for i in range(size[0]):
-    color.append(['w' for j in range(size[1])]) # initialize wiht white color
-    ori.append([[0,0] for j in range(size[1])])
+ori = [] # orientation
+for i in range(im_size[0]):
+    color.append(['w' for j in range(im_size[1])]) # initialize wiht white color
+    ori.append([[0,0] for j in range(im_size[1])])
 
 
-r=int(input("put distance: ")) # radius r means, set global path 'r * 0.05' meters away from obstacles
+r=int(input("put distance: ")) # radius r means, set global path 'r * 0.05' meters away from obstacles. 20 means 1 meter.
 yellow_num=0
-yellow_points=[]
-zero_points=[]
-image=np.zeros((size[0],size[1],3), np.uint8)
-yellow = [0,255,255]
-red = [0, 0, 255]
-blue = [255,0,0]
-black=[0,0,0]
+yellow_points = []
+zero_points = []
+image_color = np.zeros((im_size[0], im_size[1], 3), np.uint8) #gets color for each pixel
+yellow = [255, 255, 0]
+red = [255, 0, 0]
+blue = [0, 0, 255]
+black = [0, 0, 0]
 
-for i in range(size[0]):
-    for j in range(size[1]):
-      if pix[i][j]==0:
+for i in range(im_size[0]):
+    for j in range(im_size[1]):
+      if im_pix[i][j]==0:
          zero_points.append([i,j])
-         image[i][j]=blue
+         image_color[i][j]=blue
          for k in range(2*r+2):
             x=i-r-1+k
             for l in range(2*r+2):
@@ -155,24 +156,25 @@ for i in range(size[0]):
                if is_in((x,y)) and color[x][y] != 'b':
                    d = get_distance((x, y), (i, j))
                    if d < r :
-                       color[x][y] = 'b'
-                       image[x][y] = black
-                   if d>=r and d<r+1.5 and color[x][y]=='w' and pix[x][y] == 254:
+                       color[x][y] = 'b' #colorize black
+                       image_color[x][y] = black
+                   if d>=r and d<r+1.5 and color[x][y]=='w' and im_pix[x][y] == 254:
                        color[x][y]='y'
                        ori[x][y]=get_ori((x,y), (i,j))
-                       image[x][y]=yellow
+                       image_color[x][y]=yellow
 
 group_num=0
-for i in range(size[0]):
-    for j in range(size[1]):
+for i in range(im_size[0]):
+    for j in range(im_size[1]):
       if color[i][j] =='y' :
             if (not visited[i][j]):
-                group_num+=1 # group num starts from 1.
+                group_num+=1  # group num starts from 1.
                 dfs(visited,i,j,group_num) # mark each point with group_num.
             parted_i = i//10
             parted_j = j//10
-            yellow_points.append(Point((i,j), color[i][j], ori[i][j]))
-            parted_yellow[parted_i][parted_j].append(Point((i,j), color[i][j], ori[i][j]))
+            ypoint = Point((i,j), color[i][j], ori[i][j])
+            yellow_points.append(ypoint)
+            parted_yellow[parted_i][parted_j].append(ypoint)
             yellow_num+=1
             parted_num[parted_i][parted_j]+=1
 
@@ -181,20 +183,25 @@ red_group=[[] for _ in range(group_num+1)]
 for i in range(i_part):
     for j in range(j_part):
         # choose random points in each fragments(10 x 10 size). sampling rate is 0.05.
-        parted_sample[i][j] = np.random.choice(parted_yellow[i][j], size=round(parted_num[i][j]*0.05), replace=False)
+        parted_red[i][j] = np.random.choice(parted_yellow[i][j], size=round(parted_num[i][j] * 0.05), replace=False)
 
 red_num=0
 for i in range(i_part):
     for j in range(j_part):
-        for item in parted_sample[i][j]:
-            (x,y)=item.coordi
-            gn=yellow_group[x][y] # gn = group number
-            image[x][y]=red
+        for point_ in parted_red[i][j]:
+            (x,y) = point_.coordi
+            gn = yellow_group[x][y] # gn = group number
+            image_color[x][y] = red
             red_num+=1
-            red_group[gn].append(item)
+            red_group[gn].append(point_)
 
 print("yellow num, red num :", yellow_num, red_num)
 print("group number :", group_num)
+
+#visualize
+print("show global path & path_point")
+plt.imshow(image_color)
+plt.show()
 
 
 (x,y) = map(float,input("put origin coordinates: ").split())
@@ -202,7 +209,7 @@ origin = (x,y)
 resolution = 0.05
 
 # type object categories that you want to detect. ex) tv, person, cellphone etc
-object_cate=input("put wanted_objects(ex. tv) : ").split()
+object_cate = input("put wanted_objects(ex. tv) : ").split()
 
 # Setup for detecting object:
 pipe = rs.pipeline()
@@ -214,7 +221,7 @@ cfg2.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set threshold for this model
 cfg2.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
 predictor = DefaultPredictor(cfg2)
 
-# set configuration for realsense. frame size is set to 848 x 480.
+# set configuration for realsense. frame size is set 848 x 480. speed to 30 fps.
 cfg.enable_stream(rs.stream.depth,  848, 480, rs.format.z16, 30)
 cfg.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
 
@@ -239,6 +246,7 @@ extrinsic_robot_camera = np.matmul(inter, x_90) # put extrinsic matrix between r
 thre = rs.threshold_filter(0.1, 1.8)
 # Declare pointcloud object, for calculating pointclouds and texture mappings
 pc = rs.pointcloud()
+
 center = np.array([[0.0], [0.0], [1.0]])
 extent = np.array([[1], [1], [2]])
 R = np.identity(3)
@@ -251,7 +259,7 @@ for i in range(group_num):
     if len(red_group[i+1])==0 or len(red_group[i+1])==1: # when 0 or 1 point, pass
         continue
     path = gp.MST(red_group[i+1], get_distance) # get global path for each group
-    a= tr.transform_coordi(path, pix, origin, resolution) # transform pixel to world coordinates
+    a= tr.transform_coordi(path, im_pix, origin, resolution) # transform pixel to world coordinates
     b=[(item.coordi, item.ori) for item in a]
     for global_point in b:
         p = nav2.nav2(global_point[0][0], global_point[0][1], global_point[1][0], global_point[1][1], find_reset)
@@ -260,14 +268,14 @@ for i in range(group_num):
         tf = tr.get_tf(current_pose_glb, current_ori, extrinsic_robot_camera)
         object_info = ob.detect_object(cfg, pipe, cate, predictor, object_cate, tf) # get global coordinates of object
 
-        for item in object_info: #local path planning
-            name = item["name"]
-            coordi = item["coordi"]
+        for point_ in object_info: #local path planning
+            name = point_["name"]
+            coordi = point_["coordi"]
             tag = name + '_'+ str(coordi) + '.ply'
-            object_pixel = tr.transform_inverse(coordi, pix, origin, resolution)
-            current_pixel = tr.transform_inverse(current_pose_glb, pix, origin, resolution)
+            object_pixel = tr.transform_inverse(coordi, im_pix, origin, resolution)
+            current_pixel = tr.transform_inverse(current_pose_glb, im_pix, origin, resolution)
             local_path_pixel = find_local(object_pixel, current_pixel, color, local_r)
-            local_path = tr.transform_coordi(local_path_pixel, pix, origin, resolution)
+            local_path = tr.transform_coordi(local_path_pixel, im_pix, origin, resolution)
             for local_point in local_path:
                 print("local_point :", (local_point.coordi[0], local_point.coordi[1]))
             print("go local_point")
@@ -302,8 +310,8 @@ for i in range(group_num):
                 compare+=points[n+1]
             o3d.io.write_point_cloud('compare.ply', compare)
 
-            for item in points:
-                pcd_down = item.voxel_down_sample(0.04)
+            for point_ in points:
+                pcd_down = point_.voxel_down_sample(0.04)
                 pcd_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius = 0.08, max_nn=30))
                 points_down.append(pcd_down)
             for n in range(len(local_path)):
