@@ -20,7 +20,7 @@ class MyClient(Node):
 
     def __init__(self):
         super().__init__('my_client')
-        # action type : NavigateToPose, action name : NavigateToPose
+        # action type : NavigateToPose, action name : NavigateToPose. This is processed in the navigation stack.
         # create action_clieent which sends goal pose.
         self._action_client = ActionClient(self,NavigateToPose,'NavigateToPose')
         # 'amcl_pose' is for comparing between goal pose & current pose
@@ -58,14 +58,13 @@ class MyClient(Node):
         succeed_count=0
         while True:
             print("count :", count)
-            self._send_goal_future = self._action_client.send_goal_async(
-            goal_msg)
+            self._send_goal_future = self._action_client.send_goal_async(goal_msg)
             # wait until feedback comes
             rclpy.spin_until_future_complete(self,self._send_goal_future)
             goal_handle = self._send_goal_future.result()
 
             if not goal_handle.accepted:
-                self.get_logger().info('Goal rejected :(')
+                self.get_logger().info('Goal rejected :(') # it seems that this case doesn't happen
                 return
 
             #self.get_logger().info('Goal accepted :)')
@@ -113,7 +112,7 @@ def nav2(xpose, ypose, zori, wori, find_reset):
         if passed:
             current_pose = _action_client.current_pose
         rclpy.shutdown()
-    print("sleep 3sec")
-    time.sleep(3)
+    print("sleep 5sec")
+    time.sleep(5)
     return current_pose
 

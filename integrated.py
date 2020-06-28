@@ -251,7 +251,7 @@ center = np.array([[0.0], [0.0], [1.0]])
 extent = np.array([[1], [1], [2]])
 R = np.identity(3)
 
-box = OrientedBoundingBox(center, R, extent)
+box = OrientedBoundingBox(center, R, extent) # for crop when capturing
 
 
 for i in range(group_num):
@@ -305,18 +305,18 @@ for i in range(group_num):
             matrices = []
             result = copy.deepcopy(points[0])
             points_down = []
-            compare = copy.deepcopy(points[0])
+            compare = copy.deepcopy(points[0])  #to compare before & after registration
             for n in range(len(local_path)-1):
                 compare+=points[n+1]
-            o3d.io.write_point_cloud('compare.ply', compare)
+            o3d.io.write_point_cloud('compare.ply', compare) # save point clouds before registration for comparison
 
             for point_ in points:
                 pcd_down = point_.voxel_down_sample(0.04)
                 pcd_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius = 0.08, max_nn=30))
                 points_down.append(pcd_down)
             for n in range(len(local_path)):
-                o3d.io.write_point_cloud(str(n) + '.ply', points[n])
-                if n is 0:
+                o3d.io.write_point_cloud(str(n) + '.ply', points[n])  # save each point cloud
+                if n == 0:
                     continue
                 # " Point-to-plane ICP registration is applied on original point"
                 # "   clouds to refine the alignment. Distance threshold 0.04."
@@ -324,7 +324,6 @@ for i in range(group_num):
                     o3d.registration.TransformationEstimationPointToPlane())
                 matrices.append(result_icp.transformation)
                 transform_matrix = np.identity(4)
-
 
                 for mat in matrices:
                     transform_matrix = np.matmul(transform_matrix, mat)
