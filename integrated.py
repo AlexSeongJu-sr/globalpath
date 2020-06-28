@@ -62,10 +62,12 @@ def dfs(visited, x, y, group_num):
             if is_in(pos) and visited[x+i][y+j]==0 and color[x+i][y+j]=='y':
                 dfs(visited,x+i,y+j, group_num)
 
-# for finding reset point when navigation goes wrong.
-# reset point should be 'local_r' radius away from goal pose and the color should be yellow or white.
+# for finding reset point when navigation fails.
+# reset point should be 'local_r' radius away from goal pose and the color should be yellow or white. yellow : global path, white : intact.
 # yellow is global path. black is near obstacles.
 def find_reset(x, y, local_r):
+    global color
+
     center = tr.transform_inverse((x,y), im_pix, origin, resolution)
     print("center :",center)
     x=center[0]

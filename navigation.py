@@ -25,11 +25,11 @@ class MyClient(Node):
         self._action_client = ActionClient(self,NavigateToPose,'NavigateToPose')
         # 'amcl_pose' is for comparing between goal pose & current pose
         self.model_pose_sub = self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self.poseCallback)
-        self.initial_pose_received = False # is 'amcl_pose' subscribed ?
+        self.initial_pose_received = False # is 'amcl_pose' received?
 
     def poseCallback(self, msg):
         self.current_pose = msg.pose.pose # update current pose
-        self.initial_pose_received = True
+        self.initial_pose_received = True # To make sure that robot odometry information is received
 
     def distanceFromGoal(self, goal_pose):
         dx = self.current_pose.position.x - goal_pose.position.x
@@ -54,10 +54,10 @@ class MyClient(Node):
         goal_msg.pose.pose.orientation.z = zpose
         goal_msg.pose.pose.orientation.w = wpose
         self._action_client.wait_for_server()
-        count=0
-        succeed_count=0
+        try_count=0
+        succeed_bug_count=0
         while True:
-            print("count :", count)
+            print("Try count :", try_count) # Try count. Turtlebot will try again when failure.
             self._send_goal_future = self._action_client.send_goal_async(goal_msg)
             # wait until feedback comes
             rclpy.spin_until_future_complete(self,self._send_goal_future)
@@ -72,29 +72,33 @@ class MyClient(Node):
             # wait until result comes
             rclpy.spin_until_future_complete(self, self._get_result_future)
             status = self._get_result_future.result().status
-            if (status == GoalStatus.STATUS_SUCCEEDED): #nav2 stack thinks goal succeeded
-                self.get_logger().info("Goal Succeeded")
-                if not self.initial_pose_received or succeed_count>=3: #for catching bug with nav2 stack
-                    print("wait for initial_pose / bbuk nan geo im")
+            if (status == GoalStatus.STATUS_SUCCEEDED): #nav2 stack thinks goal succeeded. CAUTION : nav2 stack is not credible. It might fail and send SUCCEED.
+                self.get_logger().info("received : Goal Succeeded")
+                if not self.initial_pose_received or succeed_bug_count == 3: #for catching succeed bug of nav2 stack
+                    if not self.initial_pose_received:
+                        print("initial pose not received")
+                    if succeed_bug_count > 3:
+                        print("Nav2 stack sends succeed, but not succeeded")
                     rclpy.spin_once(self, timeout_sec = 1)
                     return False
                 print("distance :", self.distanceFromGoal(goal_msg.pose.pose))
                 print("yaw :", self.yawFromGoal(goal_msg.pose.pose))
                 # if difference is too big, send goal again
                 if self.distanceFromGoal(goal_msg.pose.pose) > 0.15 or self.yawFromGoal(goal_msg.pose.pose) > 17:
-                    succeed_count+=1
-                    count+=1
+                    succeed_bug_count+=1
+                    try_count+=1
+                    print("too far from goal. Turtlebot will try again")
                     continue
                 break
             else: # if goal fails, send goal again
-                count+=1
-                continue
+                try_count+=1
+
         return True
 
 # rclpy order : init -> client generation -> shutdown
 def nav2(xpose, ypose, zori, wori, find_reset):
     rclpy.init(args=None)
-    print("nav pose:",xpose, ypose, zori, wori)
+    print("nav goal(x, y, z, w):", xpose, ypose, zori, wori)
     action_client = MyClient()
     passed = action_client.send_goal(xpose, ypose, zori, wori)
     if passed:
@@ -103,8 +107,9 @@ def nav2(xpose, ypose, zori, wori, find_reset):
     while not passed: # if fails, go to reset point and try again until succeed
         reset = find_reset(xpose, ypose, 10)
         rclpy.init(args=None)
-        _action_client = MyClient()
-        _action_client.send_goal(reset[0], reset[1], 0.0, 1.0)
+        _action_client = MyClient() # make a new client
+        print("going to reset point", reset)
+        _action_client.send_goal(reset[0], reset[1], 0.0, 1.0) # go to reset point
         rclpy.shutdown()
         rclpy.init(args=None)
         _action_client = MyClient()

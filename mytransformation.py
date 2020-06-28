@@ -74,7 +74,7 @@ def get_tf(robot_pose, robot_ori, extrinsic_robot_camera):
     tf=np.matmul(tf, extrinsic_robot_camera)
     return tf
 
-#transform world coordinates to pixel
+#transform global coordinates to pixel coordinates
 def transform_inverse(coordi, im, origin, resolution):
     xsize=im.shape[1]
     ysize=im.shape[0]
