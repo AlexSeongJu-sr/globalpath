@@ -17,6 +17,7 @@ from open3d.open3d.utility import Vector3dVector
 import open3d as o3d
 import numpy as np
 import time
+import pdb
 
 def capture(cfg, pipe, thre, pc, box) :
     pcd = PointCloud()
@@ -44,6 +45,7 @@ def capture(cfg, pipe, thre, pc, box) :
 
         rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, convert_rgb_to_intensity=False)
         pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, pinhole_camera_intrinsic)
+        pdb.set_trace()
         pcd = pcd.crop(box)
 
     finally:

@@ -57,7 +57,6 @@ class MyClient(Node):
         try_count=0
         succeed_bug_count=0
         while True:
-            print("Try count :", try_count) # Try count. Turtlebot will try again when failure.
             self._send_goal_future = self._action_client.send_goal_async(goal_msg)
             # wait until feedback comes
             rclpy.spin_until_future_complete(self,self._send_goal_future)
@@ -73,7 +72,6 @@ class MyClient(Node):
             rclpy.spin_until_future_complete(self, self._get_result_future)
             status = self._get_result_future.result().status
             if (status == GoalStatus.STATUS_SUCCEEDED): #nav2 stack thinks goal succeeded. CAUTION : nav2 stack is not credible. It might fail and send SUCCEED.
-                self.get_logger().info("received : Goal Succeeded")
                 if not self.initial_pose_received or succeed_bug_count == 3: #for catching succeed bug of nav2 stack
                     if not self.initial_pose_received:
                         print("initial pose not received")
@@ -96,7 +94,12 @@ class MyClient(Node):
         return True
 
 # rclpy order : init -> client generation -> shutdown
-def nav2(xpose, ypose, zori, wori, find_reset):
+def nav2(xpose, ypose, zori, wori, find_reset, isglobal):
+    if isglobal:
+        print("Nav to global point")
+    else:
+        print("Nav to local point")
+
     rclpy.init(args=None)
     print("nav goal(x, y, z, w):", xpose, ypose, zori, wori)
     action_client = MyClient()
@@ -110,6 +113,7 @@ def nav2(xpose, ypose, zori, wori, find_reset):
         _action_client = MyClient() # make a new client
         print("going to reset point", reset)
         _action_client.send_goal(reset[0], reset[1], 0.0, 1.0) # go to reset point
+		print("reset is done")
         rclpy.shutdown()
         rclpy.init(args=None)
         _action_client = MyClient()

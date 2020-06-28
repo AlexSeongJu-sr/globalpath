@@ -36,15 +36,15 @@ def detect_object(cfg, pipe, category, predictor, object_cate,tf):
 
     # pred classes represents classified object numbers
     # you can see each object number at https://github.com/facebookresearch/detectron2/blob/989f52d67d05445ccd030d8f13d6cc53e297fb91/detectron2/data/datasets/builtin_meta.py
-    print("classes : ", outputs["instances"].pred_classes)
+    # print("classes : ", outputs["instances"].pred_classes)
 
     out_class = outputs["instances"].pred_classes
     out_boxes = outputs["instances"].pred_boxes
     out_scores = outputs["instances"].scores # score means probability
 
-    print("detected object") #print all detected objects
+    print("detected object :", end = " ") #print all detected objects
     for i in out_class:
-        print(category[i]["name"], end=" ")
+        print(category[i]["name"], end = " ")
     print()
 
     centers = out_boxes.get_centers() # get center coordinates of boxes

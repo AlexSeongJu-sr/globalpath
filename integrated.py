@@ -69,7 +69,6 @@ def find_reset(x, y, local_r):
     global color
 
     center = tr.transform_inverse((x,y), im_pix, origin, resolution)
-    print("center :",center)
     x=center[0]
     y=center[1]
     for k in range(2*local_r+2) :
@@ -79,7 +78,6 @@ def find_reset(x, y, local_r):
             d= get_distance((i,j), center)
             if (color[i][j]=='y' or color[i][j] == 'w') and d>=local_r and d<local_r+1.0:
                 reset=tr.transform_coordi2((i,j), im_pix, origin, resolution)
-                print("reset :",reset)
                 return reset
 
 
@@ -102,6 +100,8 @@ def find_local(obj_pose, current_pose, color, local_r):
                 if not dupl:
                     local_points.append(Point((i,j),'r', ori))
     local_points.append(Point(current_pose, 'lo', get_ori(current_pose, obj_pose)))
+    if len(local_points)>=5:
+        local_points = [local_points[i] for i in range(len(local_points)) if i%2==0]
     return local_points
 
 
@@ -112,7 +112,7 @@ cate=builtin_meta.COCO_CATEGORIES
 direction = [-1, 0, 1]
 
 # Read slam_map image
-im = pilimg.open('/home/dvision/map_200625.pgm') #load 2D slam map
+im = pilimg.open('/home/dvision/map_0628.pgm') #load 2D slam map
 
 # Fetch image pixel data to numpy array. values are one of 0, 205, 254. 0 for obstacle, 205 for near obstacle, 254 for empty space.
 im_pix = np.array(im)
@@ -190,12 +190,12 @@ for i in range(i_part):
 red_num=0
 for i in range(i_part):
     for j in range(j_part):
-        for point_ in parted_red[i][j]:
-            (x,y) = point_.coordi
+        for obj in parted_red[i][j]:
+            (x,y) = obj.coordi
             gn = yellow_group[x][y] # gn = group number
             image_color[x][y] = red
             red_num+=1
-            red_group[gn].append(point_)
+            red_group[gn].append(obj)
 
 print("yellow num, red num :", yellow_num, red_num)
 print("group number :", group_num)
@@ -249,11 +249,7 @@ thre = rs.threshold_filter(0.1, 1.8)
 # Declare pointcloud object, for calculating pointclouds and texture mappings
 pc = rs.pointcloud()
 
-center = np.array([[0.0], [0.0], [1.0]])
-extent = np.array([[1], [1], [2]])
-R = np.identity(3)
 
-box = OrientedBoundingBox(center, R, extent) # for crop when capturing
 
 
 for i in range(group_num):
@@ -262,29 +258,29 @@ for i in range(group_num):
         continue
     path = gp.MST(red_group[i+1], get_distance) # get global path for each group
     a= tr.transform_coordi(path, im_pix, origin, resolution) # transform pixel to world coordinates
-    b=[(item.coordi, item.ori) for item in a]
-    for global_point in b:
-        p = nav2.nav2(global_point[0][0], global_point[0][1], global_point[1][0], global_point[1][1], find_reset)
+    glb_path=[(item.coordi, item.ori) for item in a]
+    for global_point in glb_path:
+        p = nav2.nav2(global_point[0][0], global_point[0][1], global_point[1][0], global_point[1][1], find_reset, True)
         current_pose_glb = (p.position.x, p.position.y)
         current_ori = (p.orientation.z, p.orientation.w)
         tf = tr.get_tf(current_pose_glb, current_ori, extrinsic_robot_camera)
         object_info = ob.detect_object(cfg, pipe, cate, predictor, object_cate, tf) # get global coordinates of object
 
-        for point_ in object_info: #local path planning
-            name = point_["name"]
-            coordi = point_["coordi"]
-            tag = name + '_'+ str(coordi) + '.ply'
-            object_pixel = tr.transform_inverse(coordi, im_pix, origin, resolution)
-            current_pixel = tr.transform_inverse(current_pose_glb, im_pix, origin, resolution)
-            local_path_pixel = find_local(object_pixel, current_pixel, color, local_r)
-            local_path = tr.transform_coordi(local_path_pixel, im_pix, origin, resolution)
+        for obj in object_info: #local path planning
+            name = obj["name"]
+            obj_coordi = obj["coordi"]
+            tag = name + '_' + str(obj_coordi) + '.ply'
+            object_pixel = tr.transform_inverse(obj_coordi, im_pix, origin, resolution)  # pixel coordinates of object
+            current_pixel = tr.transform_inverse(current_pose_glb, im_pix, origin, resolution)   # pixel coordinates of current pose
+            local_path_pixel = find_local(object_pixel, current_pixel, color, local_r)      # local path is calculated in pixel coordinates
+            local_path = tr.transform_coordi(local_path_pixel, im_pix, origin, resolution)  # local path point has orientation information in it
             for local_point in local_path:
                 print("local_point :", (local_point.coordi[0], local_point.coordi[1]))
             print("go local_point")
-            idx = 0
+
             points = []
             for local_point in local_path:
-                current_pose = nav2.nav2(local_point.coordi[0], local_point.coordi[1], local_point.ori[0], local_point.ori[1], find_reset)
+                current_pose = nav2.nav2(local_point.coordi[0], local_point.coordi[1], local_point.ori[0], local_point.ori[1], find_reset, False)
                 ori = (current_pose.orientation.z, current_pose.orientation.w)
                 (cos, sin) = tr.transform_ori_inverse(ori)
                 (x, y) = (current_pose.position.x, current_pose.position.y)
@@ -297,10 +293,17 @@ for i in range(group_num):
                                    [0, 0, 1, x],
                                    [0, 0, 0, 1]])
                 print("capture start")
+                local_z = get_distance(obj_coordi, local_point.coordi)
+                print("obj - robot distance :", local_z)
+                center = np.array([[0.0], [0.0], [local_z]])
+                extent = np.array([[1.5], [1.5], [1]])
+                R = np.identity(3)
+                box = OrientedBoundingBox(center, R, extent)  # for crop when capturing
                 tmp = capture.capture(cfg, pipe, thre, pc, box)
                 print("capture end")
-                tmp = tmp.transform(r_trans)
-                tmp = tmp.transform(t_trans)
+                pdb.set_trace()
+                tmp.transform(r_trans)
+                tmp.transform(t_trans)
                 points.append(tmp)
 
             current_transformation = np.identity(4)
@@ -308,12 +311,13 @@ for i in range(group_num):
             result = copy.deepcopy(points[0])
             points_down = []
             compare = copy.deepcopy(points[0])  #to compare before & after registration
+            pdb.set_trace()
             for n in range(len(local_path)-1):
-                compare+=points[n+1]
+                compare += points[n+1]
             o3d.io.write_point_cloud('compare.ply', compare) # save point clouds before registration for comparison
 
-            for point_ in points:
-                pcd_down = point_.voxel_down_sample(0.04)
+            for obj in points:
+                pcd_down = obj.voxel_down_sample(0.04)
                 pcd_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius = 0.08, max_nn=30))
                 points_down.append(pcd_down)
             for n in range(len(local_path)):
