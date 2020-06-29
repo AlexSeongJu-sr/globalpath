@@ -112,7 +112,7 @@ cate=builtin_meta.COCO_CATEGORIES
 direction = [-1, 0, 1]
 
 # Read slam_map image
-im = pilimg.open('/home/dvision/map_0628.pgm') #load 2D slam map
+im = pilimg.open('/home/dvision/map_0629.pgm') #load 2D slam map
 
 # Fetch image pixel data to numpy array. values are one of 0, 205, 254. 0 for obstacle, 205 for near obstacle, 254 for empty space.
 im_pix = np.array(im)
@@ -245,7 +245,7 @@ camera_trans=np.array([[1, 0, 0, 0.149],
                       [0, 0, 0, 1]])
 inter = np.matmul(camera_trans, z_90)
 extrinsic_robot_camera = np.matmul(inter, x_90) # put extrinsic matrix between robot & camera
-thre = rs.threshold_filter(0.1, 1.8)
+thre = rs.threshold_filter(0.1, 3.0)
 # Declare pointcloud object, for calculating pointclouds and texture mappings
 pc = rs.pointcloud()
 
@@ -279,14 +279,15 @@ for i in range(group_num):
             print("go local_point")
 
             points = []
+            no_calibration = []
             for local_point in local_path:
                 current_pose = nav2.nav2(local_point.coordi[0], local_point.coordi[1], local_point.ori[0], local_point.ori[1], find_reset, False)
                 ori = (current_pose.orientation.z, current_pose.orientation.w)
                 (cos, sin) = tr.transform_ori_inverse(ori)
                 (x, y) = (current_pose.position.x, current_pose.position.y)
-                r_trans = np.array([[cos, 0, -sin, 0],
+                r_trans = np.array([[cos, 0, sin, 0],
                                    [0, 1, 0, 0],
-                                   [sin, 0, cos, 0],
+                                   [-sin, 0, cos, 0],
                                    [0, 0, 0, 1]])
                 t_trans = np.array([[1, 0, 0, -y],
                                    [0, 1, 0, 0],
@@ -301,7 +302,8 @@ for i in range(group_num):
                 box = OrientedBoundingBox(center, R, extent)  # for crop when capturing
                 tmp = capture.capture(cfg, pipe, thre, pc, box)
                 print("capture end")
-                pdb.set_trace()
+                no_calib = copy.deepcopy(tmp)
+                no_calibration.append(no_calib)
                 tmp.transform(r_trans)
                 tmp.transform(t_trans)
                 points.append(tmp)
@@ -311,10 +313,14 @@ for i in range(group_num):
             result = copy.deepcopy(points[0])
             points_down = []
             compare = copy.deepcopy(points[0])  #to compare before & after registration
+            no_calib_compare = copy.deepcopy(no_calibration[0])
             pdb.set_trace()
             for n in range(len(local_path)-1):
                 compare += points[n+1]
+                no_calib_compare += no_calibration[n+1]
+
             o3d.io.write_point_cloud('compare.ply', compare) # save point clouds before registration for comparison
+            o3d.io.write_point_cloud('no_calib_compare.ply', no_calib_compare)
 
             for obj in points:
                 pcd_down = obj.voxel_down_sample(0.04)
@@ -322,17 +328,20 @@ for i in range(group_num):
                 points_down.append(pcd_down)
             for n in range(len(local_path)):
                 o3d.io.write_point_cloud(str(n) + '.ply', points[n])  # save each point cloud
+                o3d.io.write_point_cloud(str(n) + '_nocalib.ply', no_calibration[n])
                 if n == 0:
                     continue
                 # " Point-to-plane ICP registration is applied on original point"
-                # "   clouds to refine the alignment. Distance threshold 0.04."
-                result_icp = o3d.registration.registration_icp(points_down[n], points_down[n-1], 0.04, current_transformation,
-                    o3d.registration.TransformationEstimationPointToPlane())
+                # "   clouds to refine the alignment. Distance threshold 0.1"
+                pdb.set_trace()
+                result_icp = o3d.registration.registration_icp(points[n], points[n-1], 0.1, current_transformation,
+                    o3d.registration.TransformationEstimationPointToPoint())
                 matrices.append(result_icp.transformation)
-                transform_matrix = np.identity(4)
 
+                transform_matrix = np.identity(4)
                 for mat in matrices:
                     transform_matrix = np.matmul(transform_matrix, mat)
+
                 bef_transform = copy.deepcopy(points[n])
                 result = result + bef_transform.transform(transform_matrix)
 

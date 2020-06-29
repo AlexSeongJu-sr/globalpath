@@ -113,7 +113,7 @@ def nav2(xpose, ypose, zori, wori, find_reset, isglobal):
         _action_client = MyClient() # make a new client
         print("going to reset point", reset)
         _action_client.send_goal(reset[0], reset[1], 0.0, 1.0) # go to reset point
-		print("reset is done")
+        print("reset done")
         rclpy.shutdown()
         rclpy.init(args=None)
         _action_client = MyClient()

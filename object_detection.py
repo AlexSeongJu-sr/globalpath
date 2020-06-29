@@ -73,6 +73,8 @@ def detect_object(cfg, pipe, category, predictor, object_cate,tf):
             depth_intrin, [x, y], depth)
         idx = idx + 1
         coordi = np.array([depth_point[0], depth_point[1], depth_point[2], 1]).T
+        if depth_point[2] > 2:  # if object is too far from camera, skip
+            continue
         print("camera coordi :", coordi)
         coordi_global = np.matmul(tf, coordi).T
         print("global coordi: ", coordi_global)

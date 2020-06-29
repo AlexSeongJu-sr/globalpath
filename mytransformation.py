@@ -14,7 +14,10 @@ class Point:
 # transform cos, sin to z, w quaternions
 def transform_ori(ori):
     w=math.sqrt((1+ori[0])/2)
-    z=ori[1]/(2*w)
+    if w!=0:
+        z = ori[1]/(2*w)
+    else:
+        z = 1
     new_ori=(z, w)
     return new_ori
 
