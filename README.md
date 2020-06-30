@@ -1,5 +1,5 @@
 # globalpath
-Sorry for the name 'globalpath' since it is confusing. Maybe '3D scene graph generation' would be right.
+Sorry for the name 'globalpath' since it is confusing. Maybe '3D scene graph generation' would be more appropriate
 
 integrated.py is the main file. 
 
