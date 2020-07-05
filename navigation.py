@@ -76,13 +76,13 @@ class MyClient(Node):
                     if not self.initial_pose_received:
                         print("initial pose not received")
                     if succeed_bug_count > 3:
-                        print("Nav2 stack sends succeed, but not succeeded")
+                        print("Nav2 stack sends succeed, but too far(Na2 bug)")
                     rclpy.spin_once(self, timeout_sec = 1)
                     return False
                 print("distance :", self.distanceFromGoal(goal_msg.pose.pose))
                 print("yaw :", self.yawFromGoal(goal_msg.pose.pose))
                 # if difference is too big, send goal again
-                if self.distanceFromGoal(goal_msg.pose.pose) > 0.15 or self.yawFromGoal(goal_msg.pose.pose) > 17:
+                if self.distanceFromGoal(goal_msg.pose.pose) > 0.15 or self.yawFromGoal(goal_msg.pose.pose) > 17:  # threshold : 15cm, 17 degree
                     succeed_bug_count+=1
                     try_count+=1
                     print("too far from goal. Turtlebot will try again")
@@ -90,7 +90,6 @@ class MyClient(Node):
                 break
             else: # if goal fails, send goal again
                 try_count+=1
-
         return True
 
 # rclpy order : init -> client generation -> shutdown
@@ -117,6 +116,10 @@ def nav2(xpose, ypose, zori, wori, find_reset, isglobal):
         rclpy.shutdown()
         rclpy.init(args=None)
         _action_client = MyClient()
+        if isglobal:
+            print("retry nav2 global goal(x, y, z, w):", xpose, ypose, zori, wori)
+        else:
+            print("retry nav2 local goal(x, y, z, w):", xpose, ypose, zori, wori)
         passed = _action_client.send_goal(xpose,ypose,zori,wori)
         if passed:
             current_pose = _action_client.current_pose
