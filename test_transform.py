@@ -28,11 +28,12 @@ class MyClient(Node):
         # action type : NavigateToPose, action name : NavigateToPose. This is processed in the navigation stack.
         # create action_clieent which sends goal pose.
         # 'amcl_pose' is for comparing between goal pose & current pose
-        self.model_pose_sub = self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self.poseCallback)
+        self.model_pose_sub = self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self.poseCallback, 1)
         self.initial_pose_received = False # is 'amcl_pose' received?
 
     def poseCallback(self, msg):
         self.current_pose = msg.pose.pose # update current pose
+        self.received_time = msg.header.stamp.sec
         self.initial_pose_received = True # To make sure that robot odometry information is received
         print("callback")
 
@@ -41,7 +42,11 @@ rclpy.init()
 test_client = MyClient()
 
 points = []
-box = OrientedBoundingBox()
+center = np.array([[0.0], [0.0], [1.5]])
+extent = np.array([[1.5], [1.5], [1.5]])
+R = np.identity(3)
+box = OrientedBoundingBox(center, R, extent)  # for crop when capturing
+
 cfg = rs.config() # config for pyrealsense
 cfg.enable_stream(rs.stream.depth,  848, 480, rs.format.z16, 30)
 cfg.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
@@ -49,7 +54,14 @@ pipe = rs.pipeline()
 thre = rs.threshold_filter(0.1, 3.0)
 
 input("Move turtlebot manually. first pose ready?")
-rclpy.spin(test_client)
+
+while True:
+    rclpy.spin_once(test_client)
+    if test_client.received_time<time.time()-0.5:
+        continue
+    else:
+        break
+
 current_pose = test_client.current_pose
 print("current_pose : ",current_pose)
 ori = (current_pose.orientation.z, current_pose.orientation.w)
@@ -71,7 +83,13 @@ tmp.transform(t_trans)
 points.append(tmp)
 
 input("Move turtlebot manually. second pose ready?")
-rclpy.spin_once(test_client)
+while True:
+    rclpy.spin_once(test_client)
+    if test_client.received_time<time.time()-0.5:
+        continue
+    else:
+        break
+
 current_pose = test_client.current_pose
 print("current_pose : ",current_pose)
 ori = (current_pose.orientation.z, current_pose.orientation.w)
