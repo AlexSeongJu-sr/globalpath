@@ -19,7 +19,7 @@ import numpy as np
 import time
 import pdb
 
-def capture(cfg, pipe, thre, pc, box) :
+def capture(cfg, pipe, thre, box) :
     pcd = PointCloud()
     
     try:

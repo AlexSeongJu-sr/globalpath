@@ -247,7 +247,6 @@ inter = np.matmul(camera_trans, z_90)
 extrinsic_robot_camera = np.matmul(inter, x_90) # put extrinsic matrix between robot & camera
 thre = rs.threshold_filter(0.1, 3.0)
 # Declare pointcloud object, for calculating pointclouds and texture mappings
-pc = rs.pointcloud()
 
 
 
@@ -300,7 +299,7 @@ for i in range(group_num):
                 extent = np.array([[1.5], [1.5], [1]])
                 R = np.identity(3)
                 box = OrientedBoundingBox(center, R, extent)  # for crop when capturing
-                tmp = capture.capture(cfg, pipe, thre, pc, box)
+                tmp = capture.capture(cfg, pipe, thre, box)
                 print("capture end")
                 no_calib = copy.deepcopy(tmp)
                 no_calibration.append(no_calib)

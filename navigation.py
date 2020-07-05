@@ -71,6 +71,7 @@ class MyClient(Node):
             # wait until result comes
             rclpy.spin_until_future_complete(self, self._get_result_future)
             status = self._get_result_future.result().status
+            rclpy.spin(self)
             if (status == GoalStatus.STATUS_SUCCEEDED): #nav2 stack thinks goal succeeded. CAUTION : nav2 stack is not credible. It might fail and send SUCCEED.
                 if not self.initial_pose_received or succeed_bug_count == 3: #for catching succeed bug of nav2 stack
                     if not self.initial_pose_received:
@@ -127,4 +128,5 @@ def nav2(xpose, ypose, zori, wori, find_reset, isglobal):
     print("sleep 5sec")
     time.sleep(5)
     return current_pose
+
 
