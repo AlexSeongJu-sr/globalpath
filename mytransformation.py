@@ -14,7 +14,10 @@ class Point:
 # transform cos, sin to z, w quaternions
 def transform_ori(ori):
     w=math.sqrt((1+ori[0])/2)
-    z=ori[1]/(2*w)
+    if w!=0:
+        z = ori[1]/(2*w)
+    else:
+        z = 1
     new_ori=(z, w)
     return new_ori
 
@@ -74,7 +77,7 @@ def get_tf(robot_pose, robot_ori, extrinsic_robot_camera):
     tf=np.matmul(tf, extrinsic_robot_camera)
     return tf
 
-#transform world coordinates to pixel
+#transform global coordinates to pixel coordinates
 def transform_inverse(coordi, im, origin, resolution):
     xsize=im.shape[1]
     ysize=im.shape[0]

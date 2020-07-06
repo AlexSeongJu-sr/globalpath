@@ -8,7 +8,7 @@ import numpy as np
 import pyrealsense2 as rs
 
 # use detectron2 to detect certain objects and their positions
-def detect_object(cfg, pipe, cate, predictor, object_cate,tf):
+def detect_object(cfg, pipe, category, predictor, object_cate,tf):
     object_info=[]
     start1 = time.time()
     profile = pipe.start(cfg)
@@ -36,12 +36,16 @@ def detect_object(cfg, pipe, cate, predictor, object_cate,tf):
 
     # pred classes represents classified object numbers
     # you can see each object number at https://github.com/facebookresearch/detectron2/blob/989f52d67d05445ccd030d8f13d6cc53e297fb91/detectron2/data/datasets/builtin_meta.py
-    print("classes : ", outputs["instances"].pred_classes)
-
+    # print("classes : ", outputs["instances"].pred_classes)
 
     out_class = outputs["instances"].pred_classes
     out_boxes = outputs["instances"].pred_boxes
     out_scores = outputs["instances"].scores # score means probability
+
+    print("detected object :", end = " ") #print all detected objects
+    for i in out_class:
+        print(category[i]["name"], end = " ")
+    print()
 
     centers = out_boxes.get_centers() # get center coordinates of boxes
     depth_scale = profile.get_device().first_depth_sensor().get_depth_scale()
@@ -49,9 +53,9 @@ def detect_object(cfg, pipe, cate, predictor, object_cate,tf):
     idx = 0
 
     for i in out_class:
-        name_t = cate[i]["name"]
+        name_t = category[i]["name"]
         dont_want=True
-        for item in object_cate:
+        for item in object_cate:  # if not in category, drop
             if item == name_t:
                 dont_want=False
         if dont_want:
@@ -69,6 +73,8 @@ def detect_object(cfg, pipe, cate, predictor, object_cate,tf):
             depth_intrin, [x, y], depth)
         idx = idx + 1
         coordi = np.array([depth_point[0], depth_point[1], depth_point[2], 1]).T
+        if depth_point[2] > 2:  # if object is too far from camera, skip
+            continue
         print("camera coordi :", coordi)
         coordi_global = np.matmul(tf, coordi).T
         print("global coordi: ", coordi_global)
