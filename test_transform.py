@@ -57,7 +57,8 @@ input("Move turtlebot manually. first pose ready?")
 
 while True:
     rclpy.spin_once(test_client)
-    if test_client.received_time<time.time()-0.5:
+    if test_client.received_time<time.time()-1.0:
+        print(test_client.current_pose)
         continue
     else:
         break
@@ -67,25 +68,27 @@ print("current_pose : ",current_pose)
 ori = (current_pose.orientation.z, current_pose.orientation.w)
 (cos, sin) = tr.transform_ori_inverse(ori)
 (x, y) = (current_pose.position.x, current_pose.position.y)
-r_trans = np.array([[cos, 0, sin, 0],
+r_trans = np.array([[cos, 0, -sin, 0],
                     [0, 1, 0, 0],
-                    [-sin, 0, cos, 0],
+                    [sin, 0, cos, 0],
                     [0, 0, 0, 1]])
 t_trans = np.array([[1, 0, 0, -y],
                     [0, 1, 0, 0],
                     [0, 0, 1, x],
                     [0, 0, 0, 1]])
 print("capture start")
+time.sleep(3)
 tmp = capture.capture(cfg, pipe, thre, box)
 print("capture end")
-tmp.transform(r_trans)
+tmp.transform(r_trans) # transform to the origin camera coordinate
 tmp.transform(t_trans)
 points.append(tmp)
 
 input("Move turtlebot manually. second pose ready?")
 while True:
     rclpy.spin_once(test_client)
-    if test_client.received_time<time.time()-0.5:
+    if test_client.received_time<time.time()-1.0:
+        print(test_client.current_pose)
         continue
     else:
         break
@@ -96,9 +99,9 @@ ori = (current_pose.orientation.z, current_pose.orientation.w)
 ori = (current_pose.orientation.z, current_pose.orientation.w)
 (cos, sin) = tr.transform_ori_inverse(ori)
 (x, y) = (current_pose.position.x, current_pose.position.y)
-r_trans = np.array([[cos, 0, sin, 0],
+r_trans = np.array([[cos, 0, -sin, 0],
                     [0, 1, 0, 0],
-                    [-sin, 0, cos, 0],
+                    [sin, 0, cos, 0],
                     [0, 0, 0, 1]])
 t_trans = np.array([[1, 0, 0, -y],
                     [0, 1, 0, 0],
@@ -106,12 +109,15 @@ t_trans = np.array([[1, 0, 0, -y],
                     [0, 0, 0, 1]])
 
 print("second capture start")
+time.sleep(3)
 tmp = capture.capture(cfg, pipe, thre, box)
 print("second capture end")
 tmp.transform(r_trans)
 tmp.transform(t_trans)
 points.append(tmp)
 
+o3d.io.write_point_cloud('view1.ply', points[0])
+o3d.io.write_point_cloud('view2.ply', points[1])
 print("before icp regi")
 o3d.io.write_point_cloud('before_icp.ply', points[0]+points[1])
 
