@@ -70,7 +70,10 @@ class MyClient(Node):
             self._get_result_future = goal_handle.get_result_async()
             # wait until result comes
             rclpy.spin_until_future_complete(self, self._get_result_future)
-            print("current_pose after get_future : %.4f  %.4f  %.4f  %.4f" %(self.current_pose.position.x, self.current_pose.position.y, self.current_pose.orientation.z, self.current_pose.orientation.w))
+            try:
+                print("current_pose after get_future : %.4f  %.4f  %.4f  %.4f" %(self.current_pose.position.x, self.current_pose.position.y, self.current_pose.orientation.z, self.current_pose.orientation.w))
+            except:
+                pass  # pose not received yet
             time.sleep(3)
             status = self._get_result_future.result().status
             print("goal status :", status)

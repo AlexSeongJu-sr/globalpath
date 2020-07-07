@@ -83,26 +83,37 @@ def find_reset(x, y, local_r):
 
 
 # find local path with object pose, current pose, radius
-def find_local(obj_pose, current_pose, color, local_r):
+def find_local(obj_pose, current_pose, color):
     local_points = []
-    x = current_pose[0]
-    y = current_pose[1]
-    for k in range(2*local_r+2) :
-        for l in range(2*local_r+2) :
+    x = obj_pose[0]
+    y = obj_pose[1]
+    local_r = get_distance(obj_pose, current_pose)
+    far_pose = current_pose
+    far_ori = get_ori(current_pose, obj_pose)
+    far_dist = get_distance(current_pose, current_pose)
+
+    for k in range(2*local_r+2):
+        for l in range(2*local_r+2):
             i = x-local_r-1+k
             j = y-local_r-1+l
-            d= get_distance((i,j), current_pose)
-            if color[i][j]=='y' and d>=local_r and d<local_r+1.0:
-                ori=get_ori((i,j), obj_pose)
-                dupl=False
-                for item in local_points:
-                    if get_distance((i,j), item.coordi) <=1.5:
-                        dupl=True
-                if not dupl:
-                    local_points.append(Point((i,j),'r', ori))
-    local_points.append(Point(current_pose, 'lo', get_ori(current_pose, obj_pose)))
-    if len(local_points)>=5:
+            if not is_in((i,j)):
+                continue
+            dist_from_obj = get_distance((i,j), obj_pose)
+            if color[i][j]=='y' and dist_from_obj>=local_r and dist_from_obj<local_r+1.0:  # among the circle(center = obj, radius = dist(obj, curr)), find the farthest from curr_pose
+                dist_from_curr = get_distance((i,j), current_pose)
+                if dist_from_curr > far_dist:
+                    far_pose = (i,j)
+                    far_dist = dist_from_curr
+                    far_ori = get_ori((i,j), obj_pose)
+
+    curr_point = Point(current_pose, 'lo', get_ori(current_pose, obj_pose))
+    far_point = Point(far_pose, 'lo', far_ori)
+
+
+    local_points = [curr_point, far_point]
+    if len(local_points) >= 5:
         local_points = [local_points[i] for i in range(len(local_points)) if i%2==0]
+
     return local_points
 
 
@@ -298,7 +309,7 @@ for i in range(group_num):
                 local_z = get_distance(obj_coordi, local_point.coordi)
                 print("obj - robot distance :", local_z)
                 center = np.array([[0.0], [0.0], [local_z]])
-                extent = np.array([[1.5], [1.5], [2.0]])
+                extent = np.array([[1.5], [2], [2.0]])
                 R = np.identity(3)
                 box = OrientedBoundingBox(center, R, extent)  # for crop when capturing
                 print("capture start")

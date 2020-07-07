@@ -73,7 +73,8 @@ def detect_object(cfg, pipe, category, predictor, object_cate,tf):
         depth_point = rs.rs2_deproject_pixel_to_point(
             depth_intrin, [x, y], depth)
         coordi = np.array([depth_point[0], depth_point[1], depth_point[2], 1]).T
-        if depth_point[2] > 2:  # if object is too far from camera, skip
+        if depth_point[2] > 1.5:  # if object is too far from camera, skip
+            print("%s is too far" % name_t)
             continue
         print("camera coordi :", coordi)
         coordi_global = np.matmul(tf, coordi).T
