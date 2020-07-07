@@ -19,7 +19,7 @@ import numpy as np
 import time
 import pdb
 
-def capture(cfg, pipe, thre, box) :
+def capture(cfg, pipe, threshold, box) :
     pcd = PointCloud()
     
     try:
@@ -36,7 +36,7 @@ def capture(cfg, pipe, thre, box) :
         frames = pipe.wait_for_frames()
         aligned_frames = align.process(frames)
         depth_frame = aligned_frames.get_depth_frame()
-        filtered = thre.process(depth_frame)
+        filtered = threshold.process(depth_frame)
 
         color_frame = aligned_frames.get_color_frame()
 
@@ -45,7 +45,7 @@ def capture(cfg, pipe, thre, box) :
 
         rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, convert_rgb_to_intensity=False)
         pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, pinhole_camera_intrinsic)
-        pcd = pcd.crop(box)  # when debugging, disable
+        pcd = pcd.crop(box)
 
     finally:
         pipe.stop()

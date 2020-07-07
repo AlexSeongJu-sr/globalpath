@@ -3,7 +3,7 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 import math, time
 from action_msgs.msg import GoalStatus
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from nav_msgs.msg import Odometry
 #action type is NavigateToPose
 from nav2_msgs.action import NavigateToPose
 import capture
@@ -28,7 +28,7 @@ class MyClient(Node):
         # action type : NavigateToPose, action name : NavigateToPose. This is processed in the navigation stack.
         # create action_clieent which sends goal pose.
         # 'amcl_pose' is for comparing between goal pose & current pose
-        self.model_pose_sub = self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self.poseCallback, 1)
+        self.model_pose_sub = self.create_subscription(Odometry, '/odom', self.poseCallback, 1)
         self.initial_pose_received = False # is 'amcl_pose' received?
 
     def poseCallback(self, msg):
@@ -57,11 +57,12 @@ input("Move turtlebot manually. first pose ready?")
 
 while True:
     rclpy.spin_once(test_client)
-    if test_client.received_time<time.time()-1.0:
-        print(test_client.current_pose)
-        continue
-    else:
-        break
+    #if test_client.received_time<time.time()-0.5:
+    #    print(test_client.current_pose)
+    #    continue
+    #else:
+    #    break
+    print(test_client.current_pose)
 
 current_pose = test_client.current_pose
 print("current_pose : ",current_pose)
@@ -87,11 +88,12 @@ points.append(tmp)
 input("Move turtlebot manually. second pose ready?")
 while True:
     rclpy.spin_once(test_client)
-    if test_client.received_time<time.time()-1.0:
-        print(test_client.current_pose)
-        continue
-    else:
-        break
+    #if test_client.received_time<time.time()-0.5:
+    #    print(test_client.current_pose)
+    #    continue
+    #else:
+    #    break
+    print(test_client.current_pose)
 
 current_pose = test_client.current_pose
 print("current_pose : ",current_pose)

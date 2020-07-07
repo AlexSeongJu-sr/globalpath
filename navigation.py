@@ -8,6 +8,7 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 import math, time
 from action_msgs.msg import GoalStatus
+from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseWithCovarianceStamped
 #action type is NavigateToPose
 from nav2_msgs.action import NavigateToPose
@@ -26,6 +27,7 @@ class MyClient(Node):
         # 'amcl_pose' is for comparing between goal pose & current pose
         self.model_pose_sub = self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self.poseCallback)
         self.initial_pose_received = False # is 'amcl_pose' received?
+        self.current_pose = None
 
     def poseCallback(self, msg):
         self.current_pose = msg.pose.pose # update current pose
@@ -54,8 +56,6 @@ class MyClient(Node):
         goal_msg.pose.pose.orientation.z = zpose
         goal_msg.pose.pose.orientation.w = wpose
         self._action_client.wait_for_server()
-        try_count=0
-        succeed_bug_count=0
         while True:
             self._send_goal_future = self._action_client.send_goal_async(goal_msg)
             # wait until feedback comes
@@ -70,27 +70,26 @@ class MyClient(Node):
             self._get_result_future = goal_handle.get_result_async()
             # wait until result comes
             rclpy.spin_until_future_complete(self, self._get_result_future)
+            try:
+                print("current_pose after get_future : %.4f  %.4f  %.4f  %.4f" %(self.current_pose.position.x, self.current_pose.position.y, self.current_pose.orientation.z, self.current_pose.orientation.w))
+            except:
+                pass  # pose not received yet
+            time.sleep(3)
             status = self._get_result_future.result().status
-            rclpy.spin(self)
+            print("goal status :", status)
             if (status == GoalStatus.STATUS_SUCCEEDED): #nav2 stack thinks goal succeeded. CAUTION : nav2 stack is not credible. It might fail and send SUCCEED.
-                if not self.initial_pose_received or succeed_bug_count == 3: #for catching succeed bug of nav2 stack
+                if not self.initial_pose_received: #for catching succeed bug of nav2 stack
                     if not self.initial_pose_received:
                         print("initial pose not received")
-                    if succeed_bug_count > 3:
-                        print("Nav2 stack sends succeed, but too far(Na2 bug)")
-                    rclpy.spin_once(self, timeout_sec = 1)
                     return False
                 print("distance :", self.distanceFromGoal(goal_msg.pose.pose))
                 print("yaw :", self.yawFromGoal(goal_msg.pose.pose))
                 # if difference is too big, send goal again
                 if self.distanceFromGoal(goal_msg.pose.pose) > 0.15 or self.yawFromGoal(goal_msg.pose.pose) > 17:  # threshold : 15cm, 17 degree
-                    succeed_bug_count+=1
-                    try_count+=1
-                    print("too far from goal. Turtlebot will try again")
-                    continue
-                break
-            else: # if goal fails, send goal again
-                try_count+=1
+                    print("too far from goal. Turtlebot will go to reset point")
+                    return False
+                else: # succeed
+                    break
         return True
 
 # rclpy order : init -> client generation -> shutdown
@@ -101,14 +100,14 @@ def nav2(xpose, ypose, zori, wori, find_reset, isglobal):
         print("Nav to local point")
 
     rclpy.init(args=None)
-    print("nav goal(x, y, z, w):", xpose, ypose, zori, wori)
+    print("nav goal(x, y, z, w): %.4f  %.4f  %.4f  %.4f" %(xpose, ypose, zori, wori))
     action_client = MyClient()
     passed = action_client.send_goal(xpose, ypose, zori, wori)
     if passed:
         current_pose = action_client.current_pose
     rclpy.shutdown() #shutdown for removing current context
     while not passed: # if fails, go to reset point and try again until succeed
-        reset = find_reset(xpose, ypose, 10)
+        reset = find_reset(xpose, ypose, 10) # local_radius : 10 * 5 = 50cm
         rclpy.init(args=None)
         _action_client = MyClient() # make a new client
         print("going to reset point", reset)
@@ -118,9 +117,9 @@ def nav2(xpose, ypose, zori, wori, find_reset, isglobal):
         rclpy.init(args=None)
         _action_client = MyClient()
         if isglobal:
-            print("retry nav2 global goal(x, y, z, w):", xpose, ypose, zori, wori)
+            print("retry nav2 global goal(x, y, z, w): %.4f  %.4f  %.4f  %.4f" %(xpose, ypose, zori, wori))
         else:
-            print("retry nav2 local goal(x, y, z, w):", xpose, ypose, zori, wori)
+            print("retry nav2 local goal(x, y, z, w): %.4f  %.4f  %.4f  %.4f" %(xpose, ypose, zori, wori))
         passed = _action_client.send_goal(xpose,ypose,zori,wori)
         if passed:
             current_pose = _action_client.current_pose

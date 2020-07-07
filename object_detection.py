@@ -43,26 +43,27 @@ def detect_object(cfg, pipe, category, predictor, object_cate,tf):
     out_scores = outputs["instances"].scores # score means probability
 
     print("detected object :", end = " ") #print all detected objects
-    for i in out_class:
-        print(category[i]["name"], end = " ")
+    for class_num in out_class:
+        print(category[class_num]["name"], end = " ")
     print()
 
     centers = out_boxes.get_centers() # get center coordinates of boxes
     depth_scale = profile.get_device().first_depth_sensor().get_depth_scale()
 
-    idx = 0
 
-    for i in out_class:
-        name_t = category[i]["name"]
+    for i, class_num in enumerate(out_class):
+        name_t = category[class_num]["name"]
         dont_want=True
-        for item in object_cate:  # if not in category, drop
+        for item in object_cate:  # if not in cate:gory, drop
             if item == name_t:
-                dont_want=False
+                dont_want = False
+                print("wanted_cate has", name_t)
         if dont_want:
+            print("wanted_cate doesn't have", name_t)
             continue
-        score_t = out_scores.cpu().numpy()[idx]
-        x = (centers[idx].cpu().numpy()[0])
-        y = (centers[idx].cpu().numpy()[1])
+        score_t = out_scores.cpu().numpy()[i]
+        x = (centers[i].cpu().numpy()[0])
+        y = (centers[i].cpu().numpy()[1])
         # x, y is pixel coordinates -> use round ftn
         x = round(x)
         y = round(y)
@@ -71,9 +72,9 @@ def detect_object(cfg, pipe, category, predictor, object_cate,tf):
         # get camera coordinates with intrinsic
         depth_point = rs.rs2_deproject_pixel_to_point(
             depth_intrin, [x, y], depth)
-        idx = idx + 1
         coordi = np.array([depth_point[0], depth_point[1], depth_point[2], 1]).T
-        if depth_point[2] > 2:  # if object is too far from camera, skip
+        if depth_point[2] > 1.5:  # if object is too far from camera, skip
+            print("%s is too far" % name_t)
             continue
         print("camera coordi :", coordi)
         coordi_global = np.matmul(tf, coordi).T
