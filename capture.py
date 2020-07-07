@@ -45,7 +45,7 @@ def capture(cfg, pipe, threshold, box) :
 
         rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(color, depth, convert_rgb_to_intensity=False)
         pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, pinhole_camera_intrinsic)
-        #pcd = pcd.crop(box)
+        pcd = pcd.crop(box)
 
     finally:
         pipe.stop()

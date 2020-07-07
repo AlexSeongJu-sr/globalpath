@@ -212,7 +212,7 @@ origin = (x,y)
 resolution = 0.05
 
 # type object categories that you want to detect. ex) tv, person, cellphone etc
-object_cate = input("put wanted_objects(ex. tv) : ").split()
+wanted_cate = input("put wanted_objects(ex. tv) : ").split()
 
 # Setup for detecting object:
 pipe = rs.pipeline()
@@ -264,7 +264,7 @@ for i in range(group_num):
         current_pose_glb = (p.position.x, p.position.y)
         current_ori = (p.orientation.z, p.orientation.w)
         tf = tr.get_tf(current_pose_glb, current_ori, extrinsic_robot_camera)
-        object_info = ob.detect_object(cfg, pipe, cate, predictor, object_cate, tf) # get global coordinates of object
+        object_info = ob.detect_object(cfg, pipe, cate, predictor, wanted_cate, tf) # get global coordinates of object
 
         for obj in object_info: #local path planning
             name = obj["name"]
@@ -298,7 +298,7 @@ for i in range(group_num):
                 local_z = get_distance(obj_coordi, local_point.coordi)
                 print("obj - robot distance :", local_z)
                 center = np.array([[0.0], [0.0], [local_z]])
-                extent = np.array([[1.5], [1.5], [1]])
+                extent = np.array([[3.0], [3.0], [3.0]])
                 R = np.identity(3)
                 box = OrientedBoundingBox(center, R, extent)  # for crop when capturing
                 print("capture start")
@@ -336,7 +336,7 @@ for i in range(group_num):
                 for n in range(multiply_num):
                     transform_matrix = np.matmul(transform_matrix, matrices[n])
 
-                bef_transform = copy.deepcopy(points[n])
+                bef_transform = copy.deepcopy(points[multiply_num-1])
                 result = result + bef_transform.transform(transform_matrix)
 
             o3d.io.write_point_cloud(tag, result) # save an object as point cloud

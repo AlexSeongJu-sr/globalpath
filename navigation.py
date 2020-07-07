@@ -9,6 +9,7 @@ from rclpy.node import Node
 import math, time
 from action_msgs.msg import GoalStatus
 from nav_msgs.msg import Odometry
+from geometry_msgs.msg import PoseWithCovarianceStamped
 #action type is NavigateToPose
 from nav2_msgs.action import NavigateToPose
 
@@ -24,7 +25,7 @@ class MyClient(Node):
         # create action_clieent which sends goal pose.
         self._action_client = ActionClient(self,NavigateToPose,'NavigateToPose')
         # 'amcl_pose' is for comparing between goal pose & current pose
-        self.model_pose_sub = self.create_subscription(Odometry, '/odom', self.poseCallback)
+        self.model_pose_sub = self.create_subscription(PoseWithCovarianceStamped, '/amcl_pose', self.poseCallback)
         self.initial_pose_received = False # is 'amcl_pose' received?
         self.current_pose = None
 
@@ -49,7 +50,7 @@ class MyClient(Node):
     def send_goal(self, xpose, ypose, zpose, wpose):
         goal_msg = NavigateToPose.Goal()
         # goal_msg.pose.header.stamp.sec = round(self.get_clock().now().nanoseconds*(10**-9))
-        goal_msg.pose.header.frame_id = "odom"
+        goal_msg.pose.header.frame_id = "map"
         goal_msg.pose.pose.position.x = xpose
         goal_msg.pose.pose.position.y = ypose
         goal_msg.pose.pose.orientation.z = zpose
@@ -69,7 +70,7 @@ class MyClient(Node):
             self._get_result_future = goal_handle.get_result_async()
             # wait until result comes
             rclpy.spin_until_future_complete(self, self._get_result_future)
-            print("current_pose after get_future:", self.current_pose)
+            print("current_pose after get_future : %.4f  %.4f  %.4f  %.4f" %(self.current_pose.position.x, self.current_pose.position.y, self.current_pose.orientation.z, self.current_pose.orientation.w))
             time.sleep(3)
             status = self._get_result_future.result().status
             print("goal status :", status)
@@ -77,7 +78,6 @@ class MyClient(Node):
                 if not self.initial_pose_received: #for catching succeed bug of nav2 stack
                     if not self.initial_pose_received:
                         print("initial pose not received")
-                    rclpy.spin_once(self, timeout_sec = 1)
                     return False
                 print("distance :", self.distanceFromGoal(goal_msg.pose.pose))
                 print("yaw :", self.yawFromGoal(goal_msg.pose.pose))
