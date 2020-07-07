@@ -113,7 +113,7 @@ cate=builtin_meta.COCO_CATEGORIES
 direction = [-1, 0, 1]
 
 # Read slam_map image
-im = pilimg.open('/home/dvision/map_0706.pgm') #load 2D slam map
+im = pilimg.open('/home/dvision/map_0707.pgm') #load 2D slam map
 
 # Fetch image pixel data to numpy array. values are one of 0, 205, 254. 0 for obstacle, 205 for near obstacle, 254 for empty space.
 im_pix = np.array(im)
@@ -298,7 +298,7 @@ for i in range(group_num):
                 local_z = get_distance(obj_coordi, local_point.coordi)
                 print("obj - robot distance :", local_z)
                 center = np.array([[0.0], [0.0], [local_z]])
-                extent = np.array([[3.0], [3.0], [3.0]])
+                extent = np.array([[1.5], [1.5], [2.0]])
                 R = np.identity(3)
                 box = OrientedBoundingBox(center, R, extent)  # for crop when capturing
                 print("capture start")
@@ -311,14 +311,14 @@ for i in range(group_num):
             current_transformation = np.identity(4)
             matrices = []
             result = copy.deepcopy(points[0])
-            compare = copy.deepcopy(points[0])  #to compare before & after registration
+            bef_regi = copy.deepcopy(points[0])  #to compare before & after registration
             pdb.set_trace()
             for n in range(1, len(local_path)):
-                compare += points[n]
+                bef_regi += points[n]
             for n in range(len(local_path)):
                 o3d.io.write_point_cloud(str(n) + '.ply', points[n])  # save each point cloud
 
-            o3d.io.write_point_cloud('before_regi.ply', compare) # save point clouds before registration for comparison
+            o3d.io.write_point_cloud('before_regi.ply', bef_regi) # save point clouds before registration for comparison
 
             for n in range(1, len(local_path)):
                 # calculate transformation between neighboring points
