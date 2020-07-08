@@ -61,9 +61,9 @@ def refine_registration(source, target, voxel_size):
 
 if __name__ == "__main__":
     voxel_size = 0.05  # means 5cm for the dataset
-    source0 = o3d.io.read_point_cloud('./0708_res/0.ply')
-    source1 = o3d.io.read_point_cloud('./0708_res/1.ply')
-    source2 = o3d.io.read_point_cloud('./0708_res/2.ply')
+    source0 = o3d.io.read_point_cloud('./0708_res/2/0.ply')
+    source1 = o3d.io.read_point_cloud('./0708_res/2/1.ply')
+    source2 = o3d.io.read_point_cloud('./0708_res/2/2.ply')
 
     print("before icp")
     o3d.visualization.draw_geometries([source0, source1, source2])
