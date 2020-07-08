@@ -8,7 +8,7 @@ import numpy as np
 import pyrealsense2 as rs
 
 # use detectron2 to detect certain objects and their positions
-def detect_object(cfg, pipe, category, predictor, object_cate,tf):
+def detect_object(cfg, pipe, category, predictor, object_cate, tf, cut_distance):
     object_info=[]
     start1 = time.time()
     profile = pipe.start(cfg)
@@ -57,7 +57,6 @@ def detect_object(cfg, pipe, category, predictor, object_cate,tf):
         for item in object_cate:  # if not in cate:gory, drop
             if item == name_t:
                 dont_want = False
-                print("wanted_cate has", name_t)
         if dont_want:
             print("wanted_cate doesn't have", name_t)
             continue
@@ -73,13 +72,12 @@ def detect_object(cfg, pipe, category, predictor, object_cate,tf):
         depth_point = rs.rs2_deproject_pixel_to_point(
             depth_intrin, [x, y], depth)
         coordi = np.array([depth_point[0], depth_point[1], depth_point[2], 1]).T
-        if depth_point[2] > 1.5:  # if object is too far from camera, skip
+        if depth_point[2] > cut_distance:  # if object is too far from camera, skip
             print("%s is too far" % name_t)
             continue
+        print("name :", name_t)
         print("camera coordi :", coordi)
         coordi_global = np.matmul(tf, coordi).T
         print("global coordi: ", coordi_global)
         object_info.append({"name" : name_t, "score" : score_t, "coordi" : coordi_global})
-        print("name :",name_t)
-        print("coordi ;", coordi_global)
     return object_info

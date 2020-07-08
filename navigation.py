@@ -47,7 +47,7 @@ class MyClient(Node):
         dif = float(abs(a))
         return dif
 
-    def send_goal(self, xpose, ypose, zpose, wpose):
+    def send_goal(self, xpose, ypose, zpose, wpose, reset = False):
         goal_msg = NavigateToPose.Goal()
         # goal_msg.pose.header.stamp.sec = round(self.get_clock().now().nanoseconds*(10**-9))
         goal_msg.pose.header.frame_id = "map"
@@ -76,6 +76,8 @@ class MyClient(Node):
                 pass  # pose not received yet
             time.sleep(3)
             status = self._get_result_future.result().status
+            if reset:
+                return # reset doesn't need to succeed
             print("goal status :", status)
             if (status == GoalStatus.STATUS_SUCCEEDED): #nav2 stack thinks goal succeeded. CAUTION : nav2 stack is not credible. It might fail and send SUCCEED.
                 if not self.initial_pose_received: #for catching succeed bug of nav2 stack
@@ -110,8 +112,8 @@ def nav2(xpose, ypose, zori, wori, find_reset, isglobal):
         reset = find_reset(xpose, ypose, 10) # local_radius : 10 * 5 = 50cm
         rclpy.init(args=None)
         _action_client = MyClient() # make a new client
-        print("going to reset point", reset)
-        _action_client.send_goal(reset[0], reset[1], 0.0, 1.0) # go to reset point
+        print("going to reset point: %.4f %.4f " %(reset[0], reset[1]))
+        _action_client.send_goal(reset[0], reset[1], 0.0, 1.0, True) # go to reset point
         print("reset done")
         rclpy.shutdown()
         rclpy.init(args=None)

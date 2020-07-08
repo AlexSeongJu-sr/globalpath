@@ -1,6 +1,6 @@
 
 import open3d as o3d
-
+import numpy as np
 
 def preprocess_point_cloud(pcd, voxel_size):
     print(":: Downsample with a voxel size %.3f." % voxel_size)
@@ -38,4 +38,14 @@ def execute_global_registration(source_down, target_down, source_fpfh,
             o3d.registration.CorrespondenceCheckerBasedOnDistance(
                 distance_threshold)
         ], o3d.registration.RANSACConvergenceCriteria(4000000, 500))
+    return result
+
+def refine_registration(source, target, voxel_size):
+    distance_threshold = voxel_size * 0.4
+    print(":: Point-to-plane ICP registration is applied on original point")
+    print("   clouds to refine the alignment. This time we use a strict")
+    print("   distance threshold %.3f." % distance_threshold)
+    result = o3d.registration.registration_icp(
+        source, target, distance_threshold, np.identity(4),
+        o3d.registration.TransformationEstimationPointToPoint())
     return result

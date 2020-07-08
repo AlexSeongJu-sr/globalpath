@@ -4,9 +4,10 @@ It takes a pre-slammed map and generates global path points. When it gets to glo
 it detects objects & go to local path points based on object pose. When it gets to local points,
 it captures the object with realsense camera. (not yet)After capturing, it does some registrations and generates scene graph data.
 """
-
+from params import *
 import PIL.Image as pilimg
 import math
+from math import floor
 import cv2
 import numpy as np
 import mytransformation as tr
@@ -21,6 +22,7 @@ import open3d as o3d
 import copy
 import matplotlib.pyplot as plt
 import pdb
+import os
 
 import detectron2
 from open3d.open3d.geometry import OrientedBoundingBox
@@ -84,14 +86,12 @@ def find_reset(x, y, local_r):
 
 # find local path with object pose, current pose, radius
 def find_local(obj_pose, current_pose, color):
-    local_points = []
-    x = obj_pose[0]
-    y = obj_pose[1]
-    local_r = get_distance(obj_pose, current_pose)
+    x = int(obj_pose[0])
+    y = int(obj_pose[1])
+    local_r = floor(get_distance(obj_pose, current_pose))
     far_pose = current_pose
     far_ori = get_ori(current_pose, obj_pose)
     far_dist = get_distance(current_pose, current_pose)
-
     for k in range(2*local_r+2):
         for l in range(2*local_r+2):
             i = x-local_r-1+k
@@ -99,20 +99,29 @@ def find_local(obj_pose, current_pose, color):
             if not is_in((i,j)):
                 continue
             dist_from_obj = get_distance((i,j), obj_pose)
-            if color[i][j]=='y' and dist_from_obj>=local_r and dist_from_obj<local_r+1.0:  # among the circle(center = obj, radius = dist(obj, curr)), find the farthest from curr_pose
+            if color[i][j] == 'y' and local_r <= dist_from_obj < local_r + 1.5:  # among the circle(center = obj, radius = dist(obj, curr)), find the farthest from curr_pose
                 dist_from_curr = get_distance((i,j), current_pose)
                 if dist_from_curr > far_dist:
                     far_pose = (i,j)
                     far_dist = dist_from_curr
                     far_ori = get_ori((i,j), obj_pose)
-
     curr_point = Point(current_pose, 'lo', get_ori(current_pose, obj_pose))
     far_point = Point(far_pose, 'lo', far_ori)
+    mid0 = (current_pose[0] + far_pose[0]) // 2
+    mid1 = (current_pose[1] + far_pose[1]) // 2		
+    mid_pose = (mid0, mid1)
+    dir = get_ori(obj_pose, mid_pose)  # unit direction vector
 
-
-    local_points = [curr_point, far_point]
-    if len(local_points) >= 5:
-        local_points = [local_points[i] for i in range(len(local_points)) if i%2==0]
+    tmp_pose = [obj_pose[0], obj_pose[1]]
+    while True:
+        i, j = floor(tmp_pose[0]), floor(tmp_pose[1])
+        if is_in((i,j)) and color[i][j] == 'y' :
+            mid_point = Point((i,j), 'lo', get_ori((i,j), obj_pose))
+            break
+        else:
+            tmp_pose[0] += dir[0]
+            tmp_pose[1] += dir[1]
+    local_points = [curr_point, mid_point, far_point]
 
     return local_points
 
@@ -124,11 +133,11 @@ cate=builtin_meta.COCO_CATEGORIES
 direction = [-1, 0, 1]
 
 # Read slam_map image
-im = pilimg.open('/home/dvision/map_0707.pgm') #load 2D slam map
+args = get_parameters()
+im = pilimg.open(args.slam_map) #load 2D slam map
 
 # Fetch image pixel data to numpy array. values are one of 0, 205, 254. 0 for obstacle, 205 for near obstacle, 254 for empty space.
 im_pix = np.array(im)
-print(im_pix.shape)
 im_size=im_pix.shape
 
 # divide map into small fragments of size 10 x 10
@@ -147,9 +156,9 @@ for i in range(im_size[0]):
     color.append(['w' for j in range(im_size[1])]) # initialize wiht white color
     ori.append([[0,0] for j in range(im_size[1])])
 
-
-r=int(input("put distance: ")) # radius r means, set global path 'r * 0.05' meters away from obstacles. 20 means 1 meter.
-yellow_num=0
+radius = args.dist_from_obstacle # radius r means, set global path 'r * 0.05' meters away from obstacles. 20 means 1 meter.
+print("distance from obstacle : %.4f meters" %(radius*0.05))
+yellow_num = 0
 yellow_points = []
 zero_points = []
 image_color = np.zeros((im_size[0], im_size[1], 3), np.uint8) #gets color for each pixel
@@ -163,36 +172,35 @@ for i in range(im_size[0]):
       if im_pix[i][j]==0:
          zero_points.append([i,j])
          image_color[i][j]=blue
-         for k in range(2*r+2):
-            x=i-r-1+k
-            for l in range(2*r+2):
-               y=j-r-1+l
+         for k in range(2 * radius + 2):
+            x= i - radius - 1 + k
+            for l in range(2 * radius + 2):
+               y= j - radius - 1 + l
                if is_in((x,y)) and color[x][y] != 'b':
                    d = get_distance((x, y), (i, j))
-                   if d < r :
-                       color[x][y] = 'b' #colorize black
+                   if d < radius :
+                       color[x][y] = 'b' # colorize black. black means near obstacle
                        image_color[x][y] = black
-                   if d>=r and d<r+1.5 and color[x][y]=='w' and im_pix[x][y] == 254:
-                       color[x][y]='y'
-                       ori[x][y]=get_ori((x,y), (i,j))
-                       image_color[x][y]=yellow
+                   if radius <= d < radius + 1.5 and color[x][y] == 'w' and im_pix[x][y] == 254:
+                       color[x][y] = 'y' # yellow means global path.
+                       ori[x][y] = get_ori((x,y), (i,j))
+                       image_color[x][y] = yellow
 
-group_num=0
+group_num = 0
 for i in range(im_size[0]):
     for j in range(im_size[1]):
-      if color[i][j] =='y' :
+      if color[i][j] == 'y':
             if (not visited[i][j]):
                 group_num+=1  # group num starts from 1.
                 dfs(visited,i,j,group_num) # mark each point with group_num.
             parted_i = i//10
             parted_j = j//10
             ypoint = Point((i,j), color[i][j], ori[i][j])
-            yellow_points.append(ypoint)
             parted_yellow[parted_i][parted_j].append(ypoint)
-            yellow_num+=1
-            parted_num[parted_i][parted_j]+=1
+            yellow_num += 1
+            parted_num[parted_i][parted_j] += 1
 
-red_group=[[] for _ in range(group_num+1)]
+red_group=[[] for _ in range(group_num+1)] # group number starts from 1
 
 for i in range(i_part):
     for j in range(j_part):
@@ -205,25 +213,23 @@ for i in range(i_part):
         for obj in parted_red[i][j]:
             (x,y) = obj.coordi
             gn = yellow_group[x][y] # gn = group number
-            image_color[x][y] = red
-            red_num+=1
+            image_color[x][y] = red # CAUTION : color is 'y' at this point. Just image_color is 'red'. image_color is for visualization.
+            red_num += 1
             red_group[gn].append(obj)
 
-print("yellow num, red num :", yellow_num, red_num)
-print("group number :", group_num)
+print("global path, path point :", yellow_num, red_num)
+print("cluster number :", group_num) # how many yellow clusters are in the map
 
 #visualize
-print("show global path & path_point")
+print("show global path & path_point") # this doesn't show on ssh log-in
 plt.imshow(image_color)
 plt.show()
 
-
-(x,y) = map(float,input("put origin coordinates: ").split())
-origin = (x,y)
+origin = args.origin
 resolution = 0.05
 
-# type object categories that you want to detect. ex) tv, person, cellphone etc
-wanted_cate = input("put wanted_objects(ex. tv) : ").split()
+# object categories that you want to detect. ex) tv, person, cellphone etc
+print("objects to find : ", args.object_category)
 
 # Setup for detecting object:
 pipe = rs.pipeline()
@@ -240,7 +246,6 @@ cfg.enable_stream(rs.stream.depth,  848, 480, rs.format.z16, 30)
 cfg.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
 
 # put local radius for local path planning
-local_r = int(input("put local_r : "))
 
 # calculate robot_camera extrinsic matrix
 z_90=np.array([[0, 1, 0, 0],
@@ -275,23 +280,28 @@ for i in range(group_num):
         current_pose_glb = (p.position.x, p.position.y)
         current_ori = (p.orientation.z, p.orientation.w)
         tf = tr.get_tf(current_pose_glb, current_ori, extrinsic_robot_camera)
-        object_info = ob.detect_object(cfg, pipe, cate, predictor, wanted_cate, tf) # get global coordinates of object
+        object_info = ob.detect_object(cfg, pipe, cate, predictor, args.object_category, tf, args.cut_distance) # get global coordinates of object
 
         for obj in object_info: #local path planning
             name = obj["name"]
             obj_coordi = obj["coordi"]
-            tag = name + '_' + str(obj_coordi) + '.ply'
+            tag = name + '_' + str(obj_coordi)
+            save_dir = args.save_dir + tag
+            os.mkdir(save_dir)
+            save_dir += '/'
+            tag += '.ply'
             object_pixel = tr.transform_inverse(obj_coordi, im_pix, origin, resolution)  # pixel coordinates of object
             current_pixel = tr.transform_inverse(current_pose_glb, im_pix, origin, resolution)   # pixel coordinates of current pose
-            local_path_pixel = find_local(object_pixel, current_pixel, color, local_r)      # local path is calculated in pixel coordinates
+            local_path_pixel = find_local(object_pixel, current_pixel, color)      # local path is calculated in pixel coordinates
             local_path = tr.transform_coordi(local_path_pixel, im_pix, origin, resolution)  # local path point has orientation information in it
             for local_point in local_path:
-                print("local_point :", (local_point.coordi[0], local_point.coordi[1]))
+                print("local_point : %.4f  %.4f" %(local_point.coordi[0], local_point.coordi[1]))
             print("go local_point")
 
             points = []
             no_calibration = []
             for local_point in local_path:
+                print("capturing... %s" %name)
                 current_pose = nav2.nav2(local_point.coordi[0], local_point.coordi[1], local_point.ori[0], local_point.ori[1], find_reset, False)
                 ori = (current_pose.orientation.z, current_pose.orientation.w)
                 (cos, sin) = tr.transform_ori_inverse(ori)
@@ -309,7 +319,7 @@ for i in range(group_num):
                 local_z = get_distance(obj_coordi, local_point.coordi)
                 print("obj - robot distance :", local_z)
                 center = np.array([[0.0], [0.0], [local_z]])
-                extent = np.array([[1.5], [2], [2.0]])
+                extent = args.crop_size
                 R = np.identity(3)
                 box = OrientedBoundingBox(center, R, extent)  # for crop when capturing
                 print("capture start")
@@ -327,19 +337,15 @@ for i in range(group_num):
             for n in range(1, len(local_path)):
                 bef_regi += points[n]
             for n in range(len(local_path)):
-                o3d.io.write_point_cloud(str(n) + '.ply', points[n])  # save each point cloud
+                o3d.io.write_point_cloud(save_dir + str(n) + '.ply', points[n])  # save each point cloud
 
-            o3d.io.write_point_cloud('before_regi.ply', bef_regi) # save point clouds before registration for comparison
+            o3d.io.write_point_cloud(save_dir + 'before_regi.ply', bef_regi) # save point clouds before registration for comparison
 
             for n in range(1, len(local_path)):
                 # calculate transformation between neighboring points
                 voxel_size = 0.05  # means 5cm for the dataset
-                source_down, target_down, source_fpfh, target_fpfh = regi.prepare_dataset(points[n], points[n-1], voxel_size)
-
-                result_ransac = regi.execute_global_registration(source_down, target_down,
-                                                            source_fpfh, target_fpfh,
-                                                            voxel_size)
-                matrices.append(result_ransac.transformation)
+                result_icp = regi.refine_registration(points[n], points[n-1], voxel_size)  # Point-to-point
+                matrices.append(result_icp.transformation)
 
             result = points[0]
             for multiply_num in range(1, len(local_path)):
@@ -347,10 +353,10 @@ for i in range(group_num):
                 for n in range(multiply_num):
                     transform_matrix = np.matmul(transform_matrix, matrices[n])
 
-                bef_transform = copy.deepcopy(points[multiply_num-1])
-                result = result + bef_transform.transform(transform_matrix)
+                tmp_pcd = copy.deepcopy(points[multiply_num])
+                result = result + tmp_pcd.transform(transform_matrix)
 
-            o3d.io.write_point_cloud(tag, result) # save an object as point cloud
+            o3d.io.write_point_cloud(save_dir + tag, result) # save an object as point cloud
 
                 # capture & resgistration
 
