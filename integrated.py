@@ -7,6 +7,7 @@ it captures the object with realsense camera. (not yet)After capturing, it does 
 
 import PIL.Image as pilimg
 import math
+from math import floor
 import cv2
 import numpy as np
 import mytransformation as tr
@@ -84,7 +85,6 @@ def find_reset(x, y, local_r):
 
 # find local path with object pose, current pose, radius
 def find_local(obj_pose, current_pose, color):
-    local_points = []
     x = obj_pose[0]
     y = obj_pose[1]
     local_r = get_distance(obj_pose, current_pose)
@@ -99,7 +99,7 @@ def find_local(obj_pose, current_pose, color):
             if not is_in((i,j)):
                 continue
             dist_from_obj = get_distance((i,j), obj_pose)
-            if color[i][j]=='y' and dist_from_obj>=local_r and dist_from_obj<local_r+1.0:  # among the circle(center = obj, radius = dist(obj, curr)), find the farthest from curr_pose
+            if color[i][j] == 'y' and local_r <= dist_from_obj < local_r + 1.5:  # among the circle(center = obj, radius = dist(obj, curr)), find the farthest from curr_pose
                 dist_from_curr = get_distance((i,j), current_pose)
                 if dist_from_curr > far_dist:
                     far_pose = (i,j)
@@ -108,11 +108,19 @@ def find_local(obj_pose, current_pose, color):
 
     curr_point = Point(current_pose, 'lo', get_ori(current_pose, obj_pose))
     far_point = Point(far_pose, 'lo', far_ori)
+    mid_pose = (current_pose + far_point) / 2
+    dir = get_ori(obj_pose, mid_pose)  # unit direction vector
 
-
-    local_points = [curr_point, far_point]
-    if len(local_points) >= 5:
-        local_points = [local_points[i] for i in range(len(local_points)) if i%2==0]
+    tmp_pose = [obj_pose[0], obj_pose[1]]
+    while True:
+        i, j = floor(tmp_pose[0]), floor(tmp_pose[1])
+        if is_in(tmp_pose) and color[i][j] == 'y' :
+            mid_point = Point(tmp_pose, 'lo', get_ori((i,j), obj_pose))
+            break
+        else:
+            tmp_pose[0] += dir[0]
+            tmp_pose[1] += dir[1]
+    local_points = [curr_point, mid_point, far_point]
 
     return local_points
 
@@ -170,10 +178,10 @@ for i in range(im_size[0]):
                if is_in((x,y)) and color[x][y] != 'b':
                    d = get_distance((x, y), (i, j))
                    if d < r :
-                       color[x][y] = 'b' #colorize black
+                       color[x][y] = 'b' # colorize black. black means near obstacle
                        image_color[x][y] = black
-                   if d>=r and d<r+1.5 and color[x][y]=='w' and im_pix[x][y] == 254:
-                       color[x][y]='y'
+                   if r <= d < r + 1.5 and color[x][y] == 'w' and im_pix[x][y] == 254:
+                       color[x][y]='y' # yellow means global path.
                        ori[x][y]=get_ori((x,y), (i,j))
                        image_color[x][y]=yellow
 
@@ -187,12 +195,11 @@ for i in range(im_size[0]):
             parted_i = i//10
             parted_j = j//10
             ypoint = Point((i,j), color[i][j], ori[i][j])
-            yellow_points.append(ypoint)
             parted_yellow[parted_i][parted_j].append(ypoint)
             yellow_num+=1
             parted_num[parted_i][parted_j]+=1
 
-red_group=[[] for _ in range(group_num+1)]
+red_group=[[] for _ in range(group_num+1)] # group number starts from 1
 
 for i in range(i_part):
     for j in range(j_part):
@@ -205,15 +212,15 @@ for i in range(i_part):
         for obj in parted_red[i][j]:
             (x,y) = obj.coordi
             gn = yellow_group[x][y] # gn = group number
-            image_color[x][y] = red
-            red_num+=1
+            image_color[x][y] = red # CAUTION : color is 'y' at this point. Just image_color is 'red'. image_color is for visualization.
+            red_num += 1
             red_group[gn].append(obj)
 
-print("yellow num, red num :", yellow_num, red_num)
-print("group number :", group_num)
+print("global path, path point :", yellow_num, red_num)
+print("cluster number :", group_num) # yellow point's cluster number
 
 #visualize
-print("show global path & path_point")
+print("show global path & path_point") # this doesn't show on ssh log-in
 plt.imshow(image_color)
 plt.show()
 
@@ -283,7 +290,7 @@ for i in range(group_num):
             tag = name + '_' + str(obj_coordi) + '.ply'
             object_pixel = tr.transform_inverse(obj_coordi, im_pix, origin, resolution)  # pixel coordinates of object
             current_pixel = tr.transform_inverse(current_pose_glb, im_pix, origin, resolution)   # pixel coordinates of current pose
-            local_path_pixel = find_local(object_pixel, current_pixel, color, local_r)      # local path is calculated in pixel coordinates
+            local_path_pixel = find_local(object_pixel, current_pixel, color)      # local path is calculated in pixel coordinates
             local_path = tr.transform_coordi(local_path_pixel, im_pix, origin, resolution)  # local path point has orientation information in it
             for local_point in local_path:
                 print("local_point :", (local_point.coordi[0], local_point.coordi[1]))
