@@ -85,13 +85,12 @@ def find_reset(x, y, local_r):
 
 # find local path with object pose, current pose, radius
 def find_local(obj_pose, current_pose, color):
-    x = obj_pose[0]
-    y = obj_pose[1]
-    local_r = get_distance(obj_pose, current_pose)
+    x = int(obj_pose[0])
+    y = int(obj_pose[1])
+    local_r = floor(get_distance(obj_pose, current_pose))
     far_pose = current_pose
     far_ori = get_ori(current_pose, obj_pose)
     far_dist = get_distance(current_pose, current_pose)
-
     for k in range(2*local_r+2):
         for l in range(2*local_r+2):
             i = x-local_r-1+k
@@ -105,17 +104,18 @@ def find_local(obj_pose, current_pose, color):
                     far_pose = (i,j)
                     far_dist = dist_from_curr
                     far_ori = get_ori((i,j), obj_pose)
-
     curr_point = Point(current_pose, 'lo', get_ori(current_pose, obj_pose))
     far_point = Point(far_pose, 'lo', far_ori)
-    mid_pose = (current_pose + far_point) / 2
+    mid0 = (current_pose[0] + far_pose[0]) // 2
+    mid1 = (current_pose[1] + far_pose[1]) // 2		
+    mid_pose = (mid0, mid1)
     dir = get_ori(obj_pose, mid_pose)  # unit direction vector
 
     tmp_pose = [obj_pose[0], obj_pose[1]]
     while True:
         i, j = floor(tmp_pose[0]), floor(tmp_pose[1])
-        if is_in(tmp_pose) and color[i][j] == 'y' :
-            mid_point = Point(tmp_pose, 'lo', get_ori((i,j), obj_pose))
+        if is_in((i,j)) and color[i][j] == 'y' :
+            mid_point = Point((i,j), 'lo', get_ori((i,j), obj_pose))
             break
         else:
             tmp_pose[0] += dir[0]
@@ -132,7 +132,7 @@ cate=builtin_meta.COCO_CATEGORIES
 direction = [-1, 0, 1]
 
 # Read slam_map image
-im = pilimg.open('/home/dvision/map_0707.pgm') #load 2D slam map
+im = pilimg.open('/home/dvision/map_0708.pgm') #load 2D slam map
 
 # Fetch image pixel data to numpy array. values are one of 0, 205, 254. 0 for obstacle, 205 for near obstacle, 254 for empty space.
 im_pix = np.array(im)
@@ -247,7 +247,6 @@ cfg.enable_stream(rs.stream.depth,  848, 480, rs.format.z16, 30)
 cfg.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
 
 # put local radius for local path planning
-local_r = int(input("put local_r : "))
 
 # calculate robot_camera extrinsic matrix
 z_90=np.array([[0, 1, 0, 0],
@@ -293,12 +292,13 @@ for i in range(group_num):
             local_path_pixel = find_local(object_pixel, current_pixel, color)      # local path is calculated in pixel coordinates
             local_path = tr.transform_coordi(local_path_pixel, im_pix, origin, resolution)  # local path point has orientation information in it
             for local_point in local_path:
-                print("local_point :", (local_point.coordi[0], local_point.coordi[1]))
+                print("local_point : %.4f  %.4f" %(local_point.coordi[0], local_point.coordi[1]))
             print("go local_point")
 
             points = []
             no_calibration = []
             for local_point in local_path:
+                print("capturing... %s" %name)
                 current_pose = nav2.nav2(local_point.coordi[0], local_point.coordi[1], local_point.ori[0], local_point.ori[1], find_reset, False)
                 ori = (current_pose.orientation.z, current_pose.orientation.w)
                 (cos, sin) = tr.transform_ori_inverse(ori)
@@ -341,12 +341,8 @@ for i in range(group_num):
             for n in range(1, len(local_path)):
                 # calculate transformation between neighboring points
                 voxel_size = 0.05  # means 5cm for the dataset
-                source_down, target_down, source_fpfh, target_fpfh = regi.prepare_dataset(points[n], points[n-1], voxel_size)
-
-                result_ransac = regi.execute_global_registration(source_down, target_down,
-                                                            source_fpfh, target_fpfh,
-                                                            voxel_size)
-                matrices.append(result_ransac.transformation)
+                result_icp = regi.refine_registration(points[n], points[n-1], voxel_size)  # Point-to-point
+                matrices.append(result_icp.transformation)
 
             result = points[0]
             for multiply_num in range(1, len(local_path)):
@@ -354,8 +350,8 @@ for i in range(group_num):
                 for n in range(multiply_num):
                     transform_matrix = np.matmul(transform_matrix, matrices[n])
 
-                bef_transform = copy.deepcopy(points[multiply_num-1])
-                result = result + bef_transform.transform(transform_matrix)
+                tmp_pcd = copy.deepcopy(points[multiply_num])
+                result = result + tmp_pcd.transform(transform_matrix)
 
             o3d.io.write_point_cloud(tag, result) # save an object as point cloud
 
