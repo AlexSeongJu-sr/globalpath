@@ -1,13 +1,16 @@
 # 3D scene graph generation
 
-A robot moves around in an indoor environment and captures 3D point cloud of wanted_objects. <br> 
-Point clouds are processed by camera calibration and icp_registration to make complete 3D data.
+A robot(Turtlebot3) moves around in an indoor environment and captures 3D point cloud of wanted_objects. <br> 
+Point clouds are processed by camera calibration and icp_registration to make complete 3D data.<br>
+ROS2(navigation/registration), Detectron2(object detection), Pyrealsense(capturing), Open3D(registration) are combined to implement each functional module. 
 
 input : 2D slam map
 
 ![slam_map](./_images/slam_map.png)
 
 output : 3D point cloud(global coordinate tagged)
+
+
  ## Process
   1. Extract global path & navigation goals(red : navigation_goals, yellow : path)
   ![global_path](./_images/global_path.png)
@@ -19,7 +22,10 @@ output : 3D point cloud(global coordinate tagged)
     3.2. Capture 3D point cloud<br>
     3.3. Repeat
   
-  4. Registration
+  4. Registration<br>
+    - The robot odometry is obtained by ROS2 topic message '/amcl_pose'.
+    With camera calibration combined, we can calculate the transformations needed for rough registration.
+    - After rough registrations, ICP registration is applied to refine the data.
   
   5. Return to step 2
  
