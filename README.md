@@ -24,7 +24,7 @@ output : 3D point cloud(global coordinate tagged)
   
   4. Registration<br>
     - The robot odometry is obtained by ROS2 topic message '/amcl_pose'.
-    With camera calibration combined, we can calculate the transformations needed for rough registration.
+    With camera calibration combined, we can calculate the transformations needed for rough registration.<br>
     - After rough registrations, ICP registration is applied to refine the data.
   
   5. Return to step 2
