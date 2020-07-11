@@ -41,7 +41,7 @@ def execute_global_registration(source_down, target_down, source_fpfh,
     return result
 
 def refine_registration(source, target, voxel_size):
-    distance_threshold = voxel_size * 0.4
+    distance_threshold = voxel_size
     print(":: Point-to-plane ICP registration is applied on original point")
     print("   clouds to refine the alignment. This time we use a strict")
     print("   distance threshold %.3f." % distance_threshold)

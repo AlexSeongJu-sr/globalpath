@@ -86,7 +86,7 @@ def find_reset(x, y, local_r):
 
 # find local path with object pose, current pose, radius
 def find_local(obj_pose, current_pose, color):
-    x = int(obj_pose[0])
+    x = int(obj_pose[0])   # set obj_pose as local path center
     y = int(obj_pose[1])
     local_r = floor(get_distance(obj_pose, current_pose))
     far_pose = current_pose
@@ -107,6 +107,31 @@ def find_local(obj_pose, current_pose, color):
                     far_ori = get_ori((i,j), obj_pose)
     curr_point = Point(current_pose, 'lo', get_ori(current_pose, obj_pose))
     far_point = Point(far_pose, 'lo', far_ori)
+
+    if get_distance(current_pose, far_pose) < args.local_limit: # in this case, set current_pose as local path center
+        x = int(current_pose[0])
+        y = int(current_pose[1])
+        local_r = args.local_radius
+        local_points = []
+        for k in range(2 * local_r + 2):
+            for l in range(2 * local_r + 2):
+                i = x - local_r - 1 + k
+                j = y - local_r - 1 + l
+                tmp_pose = (i,j)
+                if not is_in(tmp_pose):
+                    continue
+                dist_from_curr = get_distance(tmp_pose, current_pose)
+                if color[i][j] == 'y' and local_r <= dist_from_curr < local_r + 1.5:  # among the circle(center = obj, radius = dist(obj, curr)), find the farthest from curr_pose
+                    accept = True
+                    for p in local_points:
+                        if get_distance(p.coordi, tmp_pose) < 4: # neighboring points should be at least 4*5 = 20cm away
+                            accept = False
+                            break
+                    if accept:
+                        local_points.append(Point(tmp_pose, 'lo', get_ori(tmp_pose, obj_pose)))
+        local_points.append(curr_point)
+        return local_points
+
     mid0 = (current_pose[0] + far_pose[0]) // 2
     mid1 = (current_pose[1] + far_pose[1]) // 2		
     mid_pose = (mid0, mid1)
@@ -121,20 +146,21 @@ def find_local(obj_pose, current_pose, color):
         else:
             tmp_pose[0] += dir[0]
             tmp_pose[1] += dir[1]
-    local_points = [curr_point, mid_point, far_point]
+    local_points = [mid_point, curr_point, far_point]
 
     return local_points
 
 
 
 # bring object categories ex)tv, person, mouse etc
-cate=builtin_meta.COCO_CATEGORIES
+cate = builtin_meta.COCO_CATEGORIES
 # direction for dfs
 direction = [-1, 0, 1]
 
 # Read slam_map image
 args = get_parameters()
 im = pilimg.open(args.slam_map) #load 2D slam map
+print("map :", args.slam_map)
 
 # Fetch image pixel data to numpy array. values are one of 0, 205, 254. 0 for obstacle, 205 for near obstacle, 254 for empty space.
 im_pix = np.array(im)
@@ -276,7 +302,7 @@ for i in range(group_num):
     glb_path_global= tr.transform_coordi(path, im_pix, origin, resolution) # transform pixel to world coordinates
     glb_path=[(item.coordi, item.ori) for item in glb_path_global]
     for global_point in glb_path:
-        p = nav2.nav2(global_point[0][0], global_point[0][1], global_point[1][0], global_point[1][1], find_reset, True)
+        p = nav2.nav2(float(global_point[0][0]), float(global_point[0][1]), float(global_point[1][0]), float(global_point[1][1]), find_reset, True)
         current_pose_glb = (p.position.x, p.position.y)
         current_ori = (p.orientation.z, p.orientation.w)
         tf = tr.get_tf(current_pose_glb, current_ori, extrinsic_robot_camera)
@@ -302,7 +328,7 @@ for i in range(group_num):
             no_calibration = []
             for local_point in local_path:
                 print("capturing... %s" %name)
-                current_pose = nav2.nav2(local_point.coordi[0], local_point.coordi[1], local_point.ori[0], local_point.ori[1], find_reset, False)
+                current_pose = nav2.nav2(float(local_point.coordi[0]), float(local_point.coordi[1]), float(local_point.ori[0]), float(local_point.ori[1]), find_reset, False)
                 ori = (current_pose.orientation.z, current_pose.orientation.w)
                 (cos, sin) = tr.transform_ori_inverse(ori)
                 (x, y) = (current_pose.position.x, current_pose.position.y)
@@ -318,7 +344,7 @@ for i in range(group_num):
                                    [0, 0, 0, 1]])
                 local_z = get_distance(obj_coordi, local_point.coordi)
                 print("obj - robot distance :", local_z)
-                center = np.array([[0.0], [0.0], [local_z]])
+                center = np.array([[0.0], [0.7], [local_z]]) # crop center is 0.7 m below camera
                 extent = args.crop_size
                 R = np.identity(3)
                 box = OrientedBoundingBox(center, R, extent)  # for crop when capturing
@@ -333,7 +359,6 @@ for i in range(group_num):
             matrices = []
             result = copy.deepcopy(points[0])
             bef_regi = copy.deepcopy(points[0])  #to compare before & after registration
-            pdb.set_trace()
             for n in range(1, len(local_path)):
                 bef_regi += points[n]
             for n in range(len(local_path)):

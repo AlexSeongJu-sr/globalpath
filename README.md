@@ -29,8 +29,14 @@ output : 3D point cloud(global coordinate tagged)
   
   5. Return to step 2
  
- ## Example
+ ## Result(3D data made)
+ The result 3D data are made in 'res' folder. Each object is saved with its name & global homogenious coordinates.
+ * result 3D data(object - bottle, chair, teddy bear)
+ ![result1](./_images/result1.png)
  
+ 
+ 
+  ### TV
  - before registration
 ![res_separate](./_images/res_separate.png) 
  
@@ -38,11 +44,44 @@ output : 3D point cloud(global coordinate tagged)
 ![res1](./_images/res_front.png)
 ![res2](./_images/res_up.png)
  
- filename : tv_[-3.29162005  1.05766124  0.84587418  1.        ] <br>
+ filename : tv_[-3.29162005  1.05766124  0.84587418  1.        ].ply <br>
  left : before icp_registration <br>
  right : after icp_registration(Point-to-point)
  
  Seen from above, left image is a little inaccurate. Since Detectron2 percepts a monitor as tv, we typed 'tv' as a wanted category.
+
+ ### Teddy bear
+filename : teddy bear_[-2.61849478  2.45610782  0.70800929  1.        ].ply
+
+- front view
+![teddy bear1](./_images/teddy%20bear1.png)
+
+- above view
+![teddy bear2](./_images/teddy%20bear2.png)
+ 
+ ### bottle
+ filename : bottle_[-2.98900689  0.68744021  0.70953639  1.        ].ply
+ - front view
+ ![bottle_1](./_images/bottle_1.png)
+ 
+ - above view
+ ![bottle_2](./_images/bottle_2.png)
+ 
+ - problems : 
+  1. too many unnecessary objects included. This might cause inaccurate registration.
+  
+  2. If the fluid in bottle is transparent, point cloud might not be made at that point.
+  
+ 
+ ## Further research
+  
+  1. object segmentation & crop. It would need an object_segmentation network. 
+  
+  2. Save each 3D point cloud as a latent vector to use in 3D scene graph. Raw point cloud is too big to use. 
+  It would need an encoder & decoder pair. 
+   
+ 
+ 
  
  
 updating....
