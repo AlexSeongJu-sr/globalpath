@@ -27,7 +27,10 @@ output : 3D point cloud(global coordinate tagged)
     With camera calibration combined, we can calculate the transformations needed for rough registration.<br>
     - After rough registrations, ICP registration is applied to refine the data.
   
-  5. Return to step 2
+  5. Return to step 2<br><br>
+  
+ Youtube link : 
+[![vid](https://i.ytimg.com/vi/q4AIRhgP75E/hqdefault.jpg?sqp=-oaymwEZCPYBEIoBSFXyq4qpAwsIARUAAIhCGAFwAQ==&rs=AOn4CLAQtlyRRA-jYMcoTGRo_3if0wveEQ)](https://youtu.be/q4AIRhgP75E) 
  
  ## Result(3D data made)
  The result 3D data are made in 'res' folder. Each object is saved with its name & global homogenious coordinates.
@@ -59,7 +62,7 @@ filename : teddy bear_[-2.61849478  2.45610782  0.70800929  1.        ].ply
 - above view
 ![teddy bear2](./_images/teddy%20bear2.png)
  
- ### bottle
+ ### Bottle
  filename : bottle_[-2.98900689  0.68744021  0.70953639  1.        ].ply
  - front view
  ![bottle_1](./_images/bottle_1.png)

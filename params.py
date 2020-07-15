@@ -6,8 +6,8 @@ def get_parameters():
     parser = argparse.ArgumentParser(description = '3D scene graph generation', formatter_class = argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('--dist_from_obstacle', default = 20, help = '1 = 5cm')
-    parser.add_argument('--origin', default = (-4.51, -4.04), help = 'origin coordinates in map.yaml')
-    parser.add_argument('--slam_map', default = './slam_map/map_0711.pgm', help = 'map directory')
+    parser.add_argument('--origin', default = (-4.87, -3.67), help = 'origin coordinates in map.yaml')
+    parser.add_argument('--slam_map', default = './slam_map/map_0714.pgm', help = 'map directory')
     parser.add_argument('--object_category', default = ['teddy bear', 'bottle', 'backpack', 'chair'], help = 'object category to look for')
     parser.add_argument('--crop_size', default = np.array([[1.5], [2.0], [2.0]]), help = 'crop_box size(x, y, z)' )
     parser.add_argument('--cut_distance', default = 1.7, help = 'object farther than this would be ignored. meter unit')
