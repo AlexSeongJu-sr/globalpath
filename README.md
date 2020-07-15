@@ -29,7 +29,7 @@ output : 3D point cloud(global coordinate tagged)
   
   5. Return to step 2<br><br>
   
- Youtube link : 
+ Youtube link : <br>
 [![vid](https://i.ytimg.com/vi/q4AIRhgP75E/hqdefault.jpg?sqp=-oaymwEZCPYBEIoBSFXyq4qpAwsIARUAAIhCGAFwAQ==&rs=AOn4CLAQtlyRRA-jYMcoTGRo_3if0wveEQ)](https://youtu.be/q4AIRhgP75E) 
  
  ## Result(3D data made)
