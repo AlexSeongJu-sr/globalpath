@@ -17,8 +17,9 @@ from open3d.open3d.utility import Vector3dVector
 import open3d as o3d
 import numpy as np
 import time
+import pdb
 
-def capture(cfg, pipe, thre, pc, box) :
+def capture(cfg, pipe, threshold, box) :
     pcd = PointCloud()
     
     try:
@@ -35,7 +36,7 @@ def capture(cfg, pipe, thre, pc, box) :
         frames = pipe.wait_for_frames()
         aligned_frames = align.process(frames)
         depth_frame = aligned_frames.get_depth_frame()
-        filtered = thre.process(depth_frame)
+        filtered = threshold.process(depth_frame)
 
         color_frame = aligned_frames.get_color_frame()
 
