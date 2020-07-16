@@ -10,6 +10,7 @@ input : 2D slam map
 
 output : 3D point cloud(global coordinate tagged)
 
+ ![result1](./_images/result1.png)
 
  ## Process
   1. Extract global path & navigation goals(red : navigation_goals, yellow : path)
@@ -34,9 +35,6 @@ output : 3D point cloud(global coordinate tagged)
  
  ## Result(3D data made)
  The result 3D data are made in 'res' folder. Each object is saved with its name & global homogenious coordinates.
- * result 3D data(object - bottle, chair, teddy bear)
- ![result1](./_images/result1.png)
- 
  
  
   ### TV
