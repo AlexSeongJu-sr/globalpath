@@ -12,7 +12,7 @@ output : 3D point cloud(global coordinate tagged)
 
  ![result1](./_images/result1.png)
 
-##Prerequisites
+## Prerequisites
 - ROS2 : dashing <br>
 - Ubuntu : 18.04 <br>
 - detectron2 : 0.1.1 <br>
