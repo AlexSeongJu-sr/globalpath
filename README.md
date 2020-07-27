@@ -12,6 +12,15 @@ output : 3D point cloud(global coordinate tagged)
 
  ![result1](./_images/result1.png)
 
+##Prerequisites
+- ROS2 : dashing <br>
+- Ubuntu : 18.04 <br>
+- detectron2 : 0.1.1 <br>
+- pyrealsense2 : 2.34.0.1454 <br>
+- open3D : 0.9.0.0 <br>
+- python : 3.6.10 
+
+
  ## Process
   1. Extract global path & navigation goals(red : navigation_goals, yellow : path)
   ![global_path](./_images/global_path.png)
