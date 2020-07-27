@@ -77,6 +77,8 @@ filename : teddy bear_[-2.61849478  2.45610782  0.70800929  1.        ].ply
  ## Further research
   
   1. object segmentation & crop. It would need an object_segmentation network. 
+   - JSIS3D(CVPR 2019, PointNet based model) is applied directly. Please refer to my [Github](https://github.com/djflstkddk/jsis3d).
+   - Further research should include applying network based on voxelization & sparse convolutions.
   
   2. Save each 3D point cloud as a latent vector to use in 3D scene graph. Raw point cloud is too big to use. 
   It would need an encoder & decoder pair. 

@@ -344,7 +344,7 @@ for i in range(group_num):
                                    [0, 0, 0, 1]])
                 local_z = get_distance(obj_coordi, local_point.coordi)
                 print("obj - robot distance :", local_z)
-                center = np.array([[0.0], [0.7], [local_z]]) # crop center is 0.7 m below camera
+                center = np.array([[0.0], [0.8], [local_z]]) # crop center is 0.8 m below camera
                 extent = args.crop_size
                 R = np.identity(3)
                 box = OrientedBoundingBox(center, R, extent)  # for crop when capturing
