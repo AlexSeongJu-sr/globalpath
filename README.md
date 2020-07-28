@@ -50,14 +50,14 @@ output : 3D point cloud(global coordinate tagged)
     * They are registered with ICP registration finally(ICP registration). 
  
   ### TV
+ filename : tv_[-3.29162005  1.05766124  0.84587418  1.        ].ply <br>
+
  - before registration
-![res_separate](./_images/res_separate.png) 
+![res_separate](./_images/tv1_seperate.png) 
  
  - after registration
-![res1](./_images/res_front.png)
-![res2](./_images/res_up.png)
+![tv1](./_images/TV1.png)
  
- filename : tv_[-3.29162005  1.05766124  0.84587418  1.        ].ply <br>
  left : after rough_registration <br>
  right : after icp_registration(Point-to-point)
  
@@ -75,6 +75,7 @@ filename : teddy bear_[-2.61849478  2.45610782  0.70800929  1.        ].ply
  
  ### Bottle
  filename : bottle_[-2.98900689  0.68744021  0.70953639  1.        ].ply
+ 
  - front view
  ![bottle_1](./_images/bottle_1.png)
  
