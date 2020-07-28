@@ -44,7 +44,10 @@ output : 3D point cloud(global coordinate tagged)
  
  ## Result(3D data made)
  The result 3D data are made in 'res' folder. Each object is saved with its name & global homogenious coordinates.
- 
+
+    * Three point cloud data(0.ply, 1.ply, 2.ply) are captured from each view.
+    * They are registered first with robot odometry(rough registration).
+    * They are registered with ICP registration finally(ICP registration). 
  
   ### TV
  - before registration
@@ -55,10 +58,11 @@ output : 3D point cloud(global coordinate tagged)
 ![res2](./_images/res_up.png)
  
  filename : tv_[-3.29162005  1.05766124  0.84587418  1.        ].ply <br>
- left : before icp_registration <br>
+ left : after rough_registration <br>
  right : after icp_registration(Point-to-point)
  
- Seen from above, left image is a little inaccurate. Since Detectron2 percepts a monitor as tv, we typed 'tv' as a wanted category.
+    * Seen from above, left image shows little discrepancy.<br>
+    * Since Detectron2 percepts a monitor as tv, we typed 'tv' as a wanted category.
 
  ### Teddy bear
 filename : teddy bear_[-2.61849478  2.45610782  0.70800929  1.        ].ply
