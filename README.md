@@ -55,7 +55,7 @@ output : 3D point cloud(global coordinate tagged)
  - before registration
 ![res_separate](./_images/tv1_seperate.png) 
  
- - after registration
+ - after registration <br>
 ![tv1](./_images/TV1.png)
  
  left : after rough_registration <br>
