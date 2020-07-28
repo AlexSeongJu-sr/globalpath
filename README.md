@@ -61,8 +61,8 @@ output : 3D point cloud(global coordinate tagged)
  left : after rough_registration <br>
  right : after icp_registration(Point-to-point)
  
-    * Seen from above, left image shows little discrepancy.<br>
-    * Since Detectron2 percepts a monitor as tv, we typed 'tv' as a wanted category.
+    * Seen from above, left image shows little discrepancy.
+    * Since Detectron2 percepts a monitor as tv, we typed 'tv' as the category.
 
  ### Teddy bear
 filename : teddy bear_[-2.61849478  2.45610782  0.70800929  1.        ].ply
